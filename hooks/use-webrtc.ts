@@ -234,14 +234,23 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       console.log(`[PC ${participantId}] Creating new peer connection.`)
       peerConnection = new RTCPeerConnection({ 
         iceServers: ICE_SERVERS,
-        iceCandidatePoolSize: 10
+        iceCandidatePoolSize: 10,
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
       })
 
-      // Add local tracks
+      // Add local tracks with verification
       if (streamToAdd?.getTracks().length) {
+        console.log(`[PC ${participantId}] Local stream has:`, {
+          audio: streamToAdd.getAudioTracks().length,
+          video: streamToAdd.getVideoTracks().length
+        })
         streamToAdd.getTracks().forEach(track => {
+          console.log(`[PC ${participantId}] Adding ${track.kind} track:`, track.enabled)
           peerConnection!.addTrack(track, streamToAdd)
         })
+      } else {
+        console.warn(`[PC ${participantId}] No local tracks to add`)
       }
 
       // Handle ICE candidates
@@ -255,29 +264,29 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         }
       }
 
-      // Handle remote stream
+      // Handle remote tracks
+      let remoteStream: MediaStream | null = null
+      
       peerConnection.ontrack = (event) => {
-        console.log(`[PC ${participantId}] Track received:`, event.track.kind)
+        console.log(`[PC ${participantId}] ${event.track.kind} track received`)
         
-        // Get or create remote stream
-        let remoteStream = event.streams[0]
         if (!remoteStream) {
-          remoteStream = new MediaStream([event.track])
+          remoteStream = new MediaStream()
         }
         
-        // Ensure track is enabled
+        // Add track to stream
+        remoteStream.addTrack(event.track)
         event.track.enabled = true
         
-        // Update participant with stream
-        setParticipants(prev => 
-          prev.map(p => p.id === participantId ? { ...p, stream: remoteStream } : p)
-        )
-        
-        console.log(`[PC ${participantId}] Stream updated:`, {
-          tracks: remoteStream.getTracks().length,
+        console.log(`[PC ${participantId}] Stream tracks:`, {
           audio: remoteStream.getAudioTracks().length,
           video: remoteStream.getVideoTracks().length
         })
+        
+        // Update participant
+        setParticipants(prev => 
+          prev.map(p => p.id === participantId ? { ...p, stream: remoteStream } : p)
+        )
       }
 
       // Handle connection state changes for this specific peer

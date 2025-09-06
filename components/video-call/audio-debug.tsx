@@ -23,10 +23,12 @@ export default function AudioDebug({ participants, localStream }: AudioDebugProp
                     isLocal: p.isLocal,
                     hasStream: !!p.stream,
                     audioTracks: p.stream ? p.stream.getAudioTracks().length : 0,
+                    videoTracks: p.stream ? p.stream.getVideoTracks().length : 0,
                     videoMuted: videoEl?.muted || false,
                     videoVolume: videoEl?.volume || 0,
                     streamActive: p.stream?.active || false,
-                    audioEnabled: p.stream ? p.stream.getAudioTracks().some((t: MediaStreamTrack) => t.enabled) : false
+                    audioEnabled: p.stream ? p.stream.getAudioTracks().some((t: MediaStreamTrack) => t.enabled) : false,
+                    videoEnabled: p.stream ? p.stream.getVideoTracks().some((t: MediaStreamTrack) => t.enabled) : false
                 }
             })
             setAudioInfo(info)
@@ -66,10 +68,12 @@ export default function AudioDebug({ participants, localStream }: AudioDebugProp
                         <div className="grid grid-cols-2 gap-1 text-gray-400">
                             <div>Stream: {info.hasStream ? '✅' : '❌'}</div>
                             <div>Audio Tracks: {info.audioTracks}</div>
+                            <div>Video Tracks: {info.videoTracks}</div>
                             <div>Video Muted: {info.videoMuted ? '🔇' : '🔊'}</div>
                             <div>Volume: {info.videoVolume}</div>
                             <div>Stream Active: {info.streamActive ? '✅' : '❌'}</div>
                             <div>Audio Enabled: {info.audioEnabled ? '✅' : '❌'}</div>
+                            <div>Video Enabled: {info.videoEnabled ? '✅' : '❌'}</div>
                         </div>
                     </div>
                 ))}
