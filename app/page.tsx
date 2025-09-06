@@ -6,7 +6,7 @@ import ErrorBoundary from "@/components/error-boundary"
 export default function Home() {
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gray-900">
+      <div className="min-h-screen">
         <WebRTCVideoCall />
       </div>
     </ErrorBoundary>

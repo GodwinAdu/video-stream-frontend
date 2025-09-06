@@ -18,18 +18,17 @@ export interface ConnectionHealth {
 export interface Participant {
   id: string // Socket ID
   name: string
-  avatar?: string
+  stream?: MediaStream | null
   isMuted: boolean
   isVideoOff: boolean
   isHost: boolean
   isRaiseHand: boolean
-  stream?: MediaStream // Remote stream for this participant
-  activeReaction?: { emoji: string; timestamp: number } // New: for transient reactions
-  reactionTimeoutId?: NodeJS.Timeout // New: to manage clearing reactions
-  // Added for client-side representation of server's User status
-  status: "online" | "offline"
+  status: "online" | "offline" | "connecting"
   joinedAt: string
   lastSeen: string
+  isLocal?: boolean
+  activeReaction?: { emoji: string; timestamp: number }
+  reactionTimeoutId?: NodeJS.Timeout
 }
 
 export interface WebRTCState {
@@ -44,7 +43,7 @@ export interface WebRTCState {
   isVirtualBackgroundEnabled: boolean
   isReconnecting: boolean
   bufferedChatMessages: any[]
-  networkQuality: 'excellent' | 'good' | 'poor' | 'disconnected'
+  networkQuality: "excellent" | "good" | "poor" | "disconnected"
   bandwidth: { upload: number; download: number }
   speakingParticipants: Set<string>
 }
@@ -76,7 +75,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   const [isVirtualBackgroundEnabled, setIsVirtualBackgroundEnabled] = useState(false)
   const [isReconnecting, setIsReconnecting] = useState(false)
   const [bufferedChatMessages, setBufferedChatMessages] = useState<any[]>([])
-  const [networkQuality, setNetworkQuality] = useState<'excellent' | 'good' | 'poor' | 'disconnected'>('excellent')
+  const [networkQuality, setNetworkQuality] = useState<"excellent" | "good" | "poor" | "disconnected">("excellent")
   const [bandwidth, setBandwidth] = useState({ upload: 0, download: 0 })
   const [speakingParticipants, setSpeakingParticipants] = useState<Set<string>>(new Set())
 
@@ -121,7 +120,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
       console.log("Local media stream acquired successfully:", stream)
       console.log("Stream ID:", stream.id, "Active:", stream.active)
-      
+
       // Add track ended listeners to handle device disconnection
       stream.getTracks().forEach((track) => {
         console.log(
@@ -134,22 +133,22 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         if (track.readyState !== "live") {
           console.warn(`[WARN] Track ${track.kind} readyState is not 'live': ${track.readyState}`)
         }
-        
+
         // Handle track ending (device disconnected/disabled)
         track.onended = () => {
           console.warn(`${track.kind} track ended - device may have been disconnected`)
-          setError(`${track.kind === 'video' ? 'Camera' : 'Microphone'} was disconnected or disabled`)
-          
+          setError(`${track.kind === "video" ? "Camera" : "Microphone"} was disconnected or disabled`)
+
           // Try to get a new stream
           setTimeout(async () => {
             try {
               const newStream = await navigator.mediaDevices.getUserMedia({
-                video: track.kind === 'video',
-                audio: track.kind === 'audio'
+                video: track.kind === "video",
+                audio: track.kind === "audio",
               })
-              
+
               // Replace the ended track
-              if (track.kind === 'video') {
+              if (track.kind === "video") {
                 const newVideoTrack = newStream.getVideoTracks()[0]
                 if (newVideoTrack) {
                   stream.removeTrack(track)
@@ -167,18 +166,18 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
                 }
               }
             } catch (err) {
-              console.error('Failed to recover from track ending:', err)
+              console.error("Failed to recover from track ending:", err)
             }
           }, 1000)
         }
       })
-      
+
       console.log("Setting local stream state...")
       setLocalStream(stream)
-      
+
       // Set up audio level detection for local stream
       setupAudioLevelDetection(stream)
-      
+
       console.log("Local stream state set")
       return stream
     } catch (err) {
@@ -186,7 +185,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       if (err instanceof DOMException) {
         if (err.name === "NotAllowedError") {
           setError("Permission denied: Please allow camera and microphone access.")
-          localStorage.removeItem('media-permissions-granted')
+          localStorage.removeItem("media-permissions-granted")
         } else if (err.name === "NotFoundError") {
           setError("No camera or microphone found.")
         } else if (err.name === "NotReadableError") {
@@ -216,45 +215,84 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     },
     {
       urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject", 
+      username: "openrelayproject",
       credential: "openrelayproject",
     },
   ]
   const SIGNALING_SERVER_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
 
-  // Create and configure a new RTCPeerConnection for a given remote participant
-  const createPeerConnection = useCallback(
-    (participantId: string, streamToAdd: MediaStream | null): RTCPeerConnection => {
-      let peerConnection = peerConnections.current.get(participantId)
-      if (peerConnection) {
-        console.log(`[PC ${participantId}] Returning existing peer connection.`)
-        return peerConnection
-      }
+  const handleTrackEvent = useCallback((event: RTCTrackEvent, participantId: string) => {
+    console.log(`[v0] Track event for participant ${participantId}:`, event.track.kind, event.track.enabled)
 
-      console.log(`[PC ${participantId}] Creating new peer connection.`)
-      peerConnection = new RTCPeerConnection({ 
-        iceServers: ICE_SERVERS,
-        iceCandidatePoolSize: 10,
-        bundlePolicy: 'max-bundle',
-        rtcpMuxPolicy: 'require'
+    const [remoteStream] = event.streams
+    if (!remoteStream) {
+      console.warn(`[v0] No stream in track event for participant ${participantId}`)
+      return
+    }
+
+    setParticipants((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === participantId) {
+          // Create new stream or update existing one
+          let updatedStream = p.stream
+
+          if (!updatedStream || updatedStream.id !== remoteStream.id) {
+            // Create new stream with all tracks
+            updatedStream = new MediaStream()
+            remoteStream.getTracks().forEach((track) => {
+              console.log(`[v0] Adding track to participant ${participantId}:`, track.kind, track.enabled)
+              updatedStream!.addTrack(track)
+            })
+          } else {
+            // Update existing stream with new track
+            const existingTrack = updatedStream.getTracks().find((t) => t.kind === event.track.kind)
+            if (existingTrack) {
+              updatedStream.removeTrack(existingTrack)
+            }
+            updatedStream.addTrack(event.track)
+          }
+
+          return {
+            ...p,
+            stream: updatedStream,
+            isMuted: !updatedStream.getAudioTracks().some((t) => t.enabled),
+            isVideoOff: !updatedStream.getVideoTracks().some((t) => t.enabled),
+          }
+        }
+        return p
       })
 
-      // Add local tracks with verification
-      if (streamToAdd?.getTracks().length) {
-        console.log(`[PC ${participantId}] Local stream has:`, {
-          audio: streamToAdd.getAudioTracks().length,
-          video: streamToAdd.getVideoTracks().length
-        })
-        streamToAdd.getTracks().forEach(track => {
-          console.log(`[PC ${participantId}] Adding ${track.kind} track:`, track.enabled)
-          peerConnection!.addTrack(track, streamToAdd)
-        })
-      } else {
-        console.warn(`[PC ${participantId}] No local tracks to add`)
+      console.log(
+        `[v0] Updated participants after track event:`,
+        updated.map((p) => ({
+          id: p.id,
+          hasStream: !!p.stream,
+          streamId: p.stream?.id,
+          tracks: p.stream?.getTracks().length || 0,
+        })),
+      )
+
+      return updated
+    })
+  }, [])
+
+  // Create and configure a new RTCPeerConnection for a given remote participant
+  const createPeerConnection = useCallback(
+    (participantId: string): RTCPeerConnection => {
+      console.log(`[v0] Creating peer connection for participant: ${participantId}`)
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
+      })
+
+      // Enhanced track handling
+      pc.ontrack = (event) => {
+        console.log(`[v0] Received track from ${participantId}:`, event.track.kind, event.track.enabled)
+        handleTrackEvent(event, participantId)
       }
 
       // Handle ICE candidates
-      peerConnection.onicecandidate = (event) => {
+      pc.onicecandidate = (event) => {
         if (event.candidate && signalingRef.current && signalingRef.current.connected) {
           signalingRef.current.emit("ice-candidate", {
             candidate: event.candidate,
@@ -264,62 +302,37 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         }
       }
 
-      // Handle remote tracks
-      let remoteStream: MediaStream | null = null
-      
-      peerConnection.ontrack = (event) => {
-        console.log(`[PC ${participantId}] ${event.track.kind} track received`)
-        
-        if (!remoteStream) {
-          remoteStream = new MediaStream()
-        }
-        
-        // Add track to stream
-        remoteStream.addTrack(event.track)
-        event.track.enabled = true
-        
-        console.log(`[PC ${participantId}] Stream tracks:`, {
-          audio: remoteStream.getAudioTracks().length,
-          video: remoteStream.getVideoTracks().length
-        })
-        
-        // Update participant
-        setParticipants(prev => 
-          prev.map(p => p.id === participantId ? { ...p, stream: remoteStream } : p)
-        )
-      }
-
       // Handle connection state changes for this specific peer
-      peerConnection.onconnectionstatechange = () => {
-        console.log(`[PC ${participantId}] Peer connection state changed to:`, peerConnection?.connectionState)
-        setConnectionState(peerConnection?.connectionState || "new")
-        
+      pc.onconnectionstatechange = () => {
+        console.log(`[PC ${participantId}] Peer connection state changed to:`, pc?.connectionState)
+        setConnectionState(pc?.connectionState || "new")
+
         // Handle failed connections
-        if (peerConnection?.connectionState === "failed") {
+        if (pc?.connectionState === "failed") {
           console.warn(`[PC ${participantId}] Connection failed, attempting to restart ICE`)
-          peerConnection.restartIce()
+          pc.restartIce()
         }
       }
 
       // Handle signaling state changes
-      peerConnection.onsignalingstatechange = () => {
-        console.log(`[PC ${participantId}] Signaling state changed to:`, peerConnection?.signalingState)
+      pc.onsignalingstatechange = () => {
+        console.log(`[PC ${participantId}] Signaling state changed to:`, pc?.signalingState)
       }
 
       // Handle ICE connection state changes
-      peerConnection.oniceconnectionstatechange = () => {
-        console.log(`[PC ${participantId}] ICE connection state changed to:`, peerConnection?.iceConnectionState)
-        
-        if (peerConnection?.iceConnectionState === "failed") {
+      pc.oniceconnectionstatechange = () => {
+        console.log(`[PC ${participantId}] ICE connection state changed to:`, pc?.iceConnectionState)
+
+        if (pc?.iceConnectionState === "failed") {
           console.warn(`[PC ${participantId}] ICE connection failed, restarting ICE`)
-          peerConnection.restartIce()
+          pc.restartIce()
         }
       }
 
-      peerConnections.current.set(participantId, peerConnection)
-      return peerConnection
+      peerConnections.current.set(participantId, pc)
+      return pc
     },
-    [], // Dependencies are handled by passing streamToAdd
+    [handleTrackEvent],
   )
 
   // Function to start sending pings to the server
@@ -408,21 +421,21 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         setSocketConnectionHealth(data.connectionHealth)
         // Update network quality based on latency
         const latency = data.connectionHealth?.latency || 0
-        if (latency < 150) setNetworkQuality('excellent')
-        else if (latency < 300) setNetworkQuality('good')
-        else setNetworkQuality('poor')
+        if (latency < 150) setNetworkQuality("excellent")
+        else if (latency < 300) setNetworkQuality("good")
+        else setNetworkQuality("poor")
       })
 
       socket.on("user-joined", async (participant) => {
         console.log(`[Socket] User joined: ${participant.name} (${participant.id})`)
-        setParticipants(prev => [...prev, { ...participant, stream: undefined, status: "online" }])
-        
+        setParticipants((prev) => [...prev, { ...participant, stream: undefined, status: "online" }])
+
         // Create peer connection and offer
-        const peerConnection = createPeerConnection(participant.id, stream)
+        const peerConnection = createPeerConnection(participant.id)
         try {
           const offer = await peerConnection.createOffer({
             offerToReceiveAudio: true,
-            offerToReceiveVideo: true
+            offerToReceiveVideo: true,
           })
           await peerConnection.setLocalDescription(offer)
           socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
@@ -436,11 +449,11 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         setParticipants(currentParticipants.map((p: any) => ({ ...p, stream: undefined, status: "online" })))
 
         for (const participant of currentParticipants) {
-          const peerConnection = createPeerConnection(participant.id, stream)
+          const peerConnection = createPeerConnection(participant.id)
           try {
             const offer = await peerConnection.createOffer({
               offerToReceiveAudio: true,
-              offerToReceiveVideo: true
+              offerToReceiveVideo: true,
             })
             await peerConnection.setLocalDescription(offer)
             socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
@@ -463,7 +476,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       socket.on("offer", async ({ offer, senderId }) => {
         console.log(`[Socket] Received offer from ${senderId}`)
-        const peerConnection = createPeerConnection(senderId, stream)
+        const peerConnection = createPeerConnection(senderId)
         try {
           await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
           const answer = await peerConnection.createAnswer()
@@ -573,10 +586,12 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       socket.on("host-changed", ({ newHostId, newHostName }) => {
         console.log(`[Socket] Host changed to ${newHostName} (${newHostId})`)
-        setParticipants(prev => prev.map(p => ({ 
-          ...p, 
-          isHost: p.id === newHostId 
-        })))
+        setParticipants((prev) =>
+          prev.map((p) => ({
+            ...p,
+            isHost: p.id === newHostId,
+          })),
+        )
       })
 
       socket.on("disconnect", (reason) => {
@@ -603,7 +618,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         console.error("Error description:", err.description)
         console.error("Error context:", err.context)
         console.error("Error type:", err.type)
-        
+
         let errorMessage = "Failed to connect to meeting server."
         if (err.message === "xhr poll error") {
           errorMessage = "Network connection failed. Trying different connection method..."
@@ -628,7 +643,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         } else {
           errorMessage = "Connection failed. Please check your internet connection."
         }
-        
+
         setError(errorMessage)
         setIsConnected(false)
         setIsReconnecting(true) // Keep trying to reconnect
@@ -698,54 +713,58 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   )
 
   // Audio level detection for speaking indicators
-  const setupAudioLevelDetection = useCallback((stream: MediaStream) => {
-    try {
-      const audioTrack = stream.getAudioTracks()[0]
-      if (!audioTrack) return
-
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const source = audioContextRef.current.createMediaStreamSource(stream)
-      analyserRef.current = audioContextRef.current.createAnalyser()
-      analyserRef.current.fftSize = 256
-      source.connect(analyserRef.current)
-
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
-      
-      const checkAudioLevel = () => {
-        if (!analyserRef.current || !localParticipantId) return
-        
-        analyserRef.current.getByteFrequencyData(dataArray)
-        const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
-        
-        // Threshold for speaking detection
-        const isSpeaking = average > 10
-        
-        if (isSpeaking) {
-          setSpeakingParticipants(prev => new Set(prev).add(localParticipantId))
-          
-          // Clear existing timeout
-          if (speakingTimeoutRef.current) {
-            clearTimeout(speakingTimeoutRef.current)
-          }
-          
-          // Set timeout to remove speaking indicator
-          speakingTimeoutRef.current = setTimeout(() => {
-            setSpeakingParticipants(prev => {
-              const newSet = new Set(prev)
-              newSet.delete(localParticipantId)
-              return newSet
-            })
-          }, 500)
+  const setupAudioLevelDetection = useCallback(
+    (stream: MediaStream) => {
+      try {
+        const audioTrack = stream.getAudioTracks()[0]
+        if (!audioTrack) {
+          console.warn("No audio track available for level detection")
+          return
         }
-        
-        requestAnimationFrame(checkAudioLevel)
+
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+        if (!AudioContextClass) {
+          console.warn("AudioContext not supported in this browser")
+          return
+        }
+
+        audioContextRef.current = new AudioContextClass()
+        const source = audioContextRef.current.createMediaStreamSource(stream)
+        analyserRef.current = audioContextRef.current.createAnalyser()
+        analyserRef.current.fftSize = 256
+        source.connect(analyserRef.current)
+
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+
+        const checkAudioLevel = () => {
+          if (!analyserRef.current || !localParticipantId) return
+
+          analyserRef.current.getByteFrequencyData(dataArray)
+          const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
+
+          const isAudioEnabled = audioTrack?.enabled || false
+          const isSpeaking = average > 30 && isAudioEnabled
+
+          setSpeakingParticipants((prev) => {
+            const newSet = new Set(prev)
+            if (isSpeaking) {
+              newSet.add(localParticipantId)
+            } else {
+              newSet.delete(localParticipantId)
+            }
+            return newSet
+          })
+
+          requestAnimationFrame(checkAudioLevel)
+        }
+
+        checkAudioLevel()
+      } catch (error) {
+        console.error("Failed to setup audio level detection:", error)
       }
-      
-      checkAudioLevel()
-    } catch (error) {
-      console.error('Failed to setup audio level detection:', error)
-    }
-  }, [localParticipantId])
+    },
+    [localParticipantId],
+  )
 
   // Toggle mute
   const toggleMute = useCallback(() => {
@@ -753,20 +772,27 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       const audioTrack = localStream.getAudioTracks()[0]
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled
+        const isMuted = !audioTrack.enabled
+
         console.log(`Local audio toggled: ${audioTrack.enabled ? "on" : "off"}`)
+
+        setParticipants((prev) => prev.map((p) => (p.id === localParticipantId ? { ...p, isMuted } : p)))
+
         if (signalingRef.current && signalingRef.current.connected) {
           signalingRef.current.emit("user-muted", {
             participantId: signalingRef.current.id,
-            isMuted: !audioTrack.enabled,
+            isMuted,
           })
         }
       } else {
         console.warn("No audio track found in local stream to toggle mute.")
+        setError("No microphone available to mute/unmute")
       }
     } else {
       console.warn("No local stream available to toggle mute.")
+      setError("No audio stream available. Please check your microphone permissions.")
     }
-  }, [localStream])
+  }, [localStream, localParticipantId])
 
   // Toggle video
   const toggleVideo = useCallback(() => {
@@ -1042,3 +1068,5 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     setBufferedChatMessages,
   }
 }
+
+export default useWebRTC

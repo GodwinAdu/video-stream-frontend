@@ -55,23 +55,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {process.env.NODE_ENV === "development" && this.state.error && (
                 <div className="bg-gray-800 rounded-lg p-3">
-                  <p className="text-red-400 text-sm font-mono">
-                    {this.state.error.message}
-                  </p>
+                  <p className="text-red-400 text-sm font-mono">{this.state.error.message}</p>
                 </div>
               )}
               <div className="flex space-x-3">
-                <Button
-                  onClick={this.retry}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
-                >
+                <Button onClick={this.retry} className="flex-1 bg-blue-600 hover:bg-blue-700">
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Try Again
                 </Button>
                 <Button
-                  onClick={() => window.location.href = '/'}
+                  onClick={() => (window.location.href = "/")}
                   variant="outline"
                   className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
                 >

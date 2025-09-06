@@ -2,7 +2,6 @@
 
 import { X, Mic, MicOff, Video, VideoOff, Crown, Hand, MoreVertical, UserPlus, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -24,14 +23,25 @@ export default function ParticipantsPanel({ participants, onClose }: Participant
                     </div>
                     <div>
                         <h3 className="font-semibold text-gray-50 text-lg">Participants</h3>
-                        <p className="text-xs text-gray-400">{participants.length} {participants.length === 1 ? 'person' : 'people'} in meeting</p>
+                        <p className="text-xs text-gray-400">
+                            {participants.length} {participants.length === 1 ? "person" : "people"} in meeting
+                        </p>
                     </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-800/50 rounded-xl">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-800/50 rounded-xl"
+                    >
                         <UserPlus className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={onClose} className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-800/50 rounded-xl">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onClose}
+                        className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-800/50 rounded-xl"
+                    >
                         <X className="w-5 h-5" />
                     </Button>
                 </div>
@@ -59,7 +69,10 @@ export default function ParticipantsPanel({ participants, onClose }: Participant
                                         <Avatar className="w-12 h-12 border-2 border-gray-600 group-hover:border-gray-500 transition-colors">
                                             <AvatarImage src={participant.avatar || "/placeholder.svg?height=48&width=48"} />
                                             <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
-                                                {participant.name.split(" ").map(n => n[0]).join("")}
+                                                {participant.name
+                                                    .split(" ")
+                                                    .map((n) => n[0])
+                                                    .join("")}
                                             </AvatarFallback>
                                         </Avatar>
                                         {participant.isRaiseHand && (
@@ -67,16 +80,20 @@ export default function ParticipantsPanel({ participants, onClose }: Participant
                                                 <Hand className="w-3 h-3 text-white" />
                                             </div>
                                         )}
-                                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-900 ${
-                                            participant.status === 'online' ? 'bg-green-500' : 'bg-gray-500'
-                                        }`} />
+                                        <div
+                                            className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-900 ${participant.status === "online" ? "bg-green-500" : "bg-gray-500"
+                                                }`}
+                                        />
                                     </div>
 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center space-x-2 mb-1">
                                             <span className="text-sm font-semibold text-gray-50 truncate">{participant.name}</span>
                                             {participant.isHost && (
-                                                <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 text-xs px-2 py-0.5">
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 text-xs px-2 py-0.5"
+                                                >
                                                     <Crown className="w-3 h-3 mr-1" />
                                                     Host
                                                 </Badge>
@@ -114,7 +131,11 @@ export default function ParticipantsPanel({ participants, onClose }: Participant
                                     </div>
                                 </div>
 
-                                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-700/50 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-700/50 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                >
                                     <MoreVertical className="w-4 h-4" />
                                 </Button>
                             </div>
@@ -137,11 +158,11 @@ export default function ParticipantsPanel({ participants, onClose }: Participant
                         </div>
                         <div className="flex items-center space-x-1">
                             <Mic className="w-3 h-3" />
-                            <span>{participants.filter(p => !p.isMuted).length} speaking</span>
+                            <span>{participants.filter((p) => !p.isMuted).length} speaking</span>
                         </div>
                         <div className="flex items-center space-x-1">
                             <Video className="w-3 h-3" />
-                            <span>{participants.filter(p => !p.isVideoOff).length} video on</span>
+                            <span>{participants.filter((p) => !p.isVideoOff).length} video on</span>
                         </div>
                     </div>
                 </div>

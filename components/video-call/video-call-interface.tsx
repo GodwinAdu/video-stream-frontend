@@ -11,7 +11,7 @@ import {
     MessageSquare,
     Users,
     Settings,
-    RepeatIcon as Record,
+    CreditCard as Record,
     Sparkles,
     Brain,
     Eye,
@@ -31,7 +31,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import ChatPanel from "./chat-panel"
 import ParticipantsPanel from "./participants-panel"
+import SettingsPanel from "./settings-panel"
 import AIFeaturesPanel from "./ai-features"
+
 
 interface Participant {
     id: string
