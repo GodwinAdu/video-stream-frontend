@@ -464,11 +464,26 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         console.log("[Socket] Received existing participants:", currentParticipants.length)
         setParticipants(currentParticipants.map((p: any) => ({ ...p, stream: undefined, status: "online" })))
 
-        // New user creates peer connections but waits for offers from existing users
-        currentParticipants.forEach((participant: any) => {
-          console.log(`[Socket] Setting up peer connection for existing user ${participant.id}`)
-          createPeerConnection(participant.id, stream)
-        })
+        // New user creates offers to existing users
+        for (let i = 0; i < currentParticipants.length; i++) {
+          const participant = currentParticipants[i]
+          setTimeout(async () => {
+            if (stream && stream.getTracks().length > 0) {
+              const peerConnection = createPeerConnection(participant.id, stream)
+              try {
+                const offer = await peerConnection.createOffer({
+                  offerToReceiveAudio: true,
+                  offerToReceiveVideo: true,
+                })
+                await peerConnection.setLocalDescription(offer)
+                socket.emit("offer", { offer, targetId: participant.id })
+                console.log(`[Socket] ✅ Offer sent to existing user ${participant.id}`)
+              } catch (e) {
+                console.error(`[Socket] ❌ Offer error for ${participant.id}:`, e)
+              }
+            }
+          }, i * 200) // 200ms delay between offers
+        }
       })
 
       socket.on("user-left", ({ participantId, userName: leftUserName }) => {
