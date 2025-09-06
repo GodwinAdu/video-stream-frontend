@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef, useCallback, useEffect } from "react"
 import { io, type Socket } from "socket.io-client"
+import { sendMessage } from "@/lib/utils" // Declare or import sendMessage
 
 // Define ConnectionHealth interface to match server
 export interface ConnectionHealth {
@@ -18,17 +18,18 @@ export interface ConnectionHealth {
 export interface Participant {
   id: string // Socket ID
   name: string
-  stream?: MediaStream | null
+  avatar?: string
   isMuted: boolean
   isVideoOff: boolean
   isHost: boolean
   isRaiseHand: boolean
-  status: "online" | "offline" | "connecting"
+  stream?: MediaStream // Remote stream for this participant
+  activeReaction?: { emoji: string; timestamp: number } // New: for transient reactions
+  reactionTimeoutId?: NodeJS.Timeout // New: to manage clearing reactions
+  // Added for client-side representation of server's User status
+  status: "online" | "offline"
   joinedAt: string
   lastSeen: string
-  isLocal?: boolean
-  activeReaction?: { emoji: string; timestamp: number }
-  reactionTimeoutId?: NodeJS.Timeout
 }
 
 export interface WebRTCState {
@@ -221,78 +222,34 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   ]
   const SIGNALING_SERVER_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
 
-  const handleTrackEvent = useCallback((event: RTCTrackEvent, participantId: string) => {
-    console.log(`[v0] Track event for participant ${participantId}:`, event.track.kind, event.track.enabled)
-
-    const [remoteStream] = event.streams
-    if (!remoteStream) {
-      console.warn(`[v0] No stream in track event for participant ${participantId}`)
-      return
-    }
-
-    setParticipants((prev) => {
-      const updated = prev.map((p) => {
-        if (p.id === participantId) {
-          // Create new stream or update existing one
-          let updatedStream = p.stream
-
-          if (!updatedStream || updatedStream.id !== remoteStream.id) {
-            // Create new stream with all tracks
-            updatedStream = new MediaStream()
-            remoteStream.getTracks().forEach((track) => {
-              console.log(`[v0] Adding track to participant ${participantId}:`, track.kind, track.enabled)
-              updatedStream!.addTrack(track)
-            })
-          } else {
-            // Update existing stream with new track
-            const existingTrack = updatedStream.getTracks().find((t) => t.kind === event.track.kind)
-            if (existingTrack) {
-              updatedStream.removeTrack(existingTrack)
-            }
-            updatedStream.addTrack(event.track)
-          }
-
-          return {
-            ...p,
-            stream: updatedStream,
-            isMuted: !updatedStream.getAudioTracks().some((t) => t.enabled),
-            isVideoOff: !updatedStream.getVideoTracks().some((t) => t.enabled),
-          }
-        }
-        return p
-      })
-
-      console.log(
-        `[v0] Updated participants after track event:`,
-        updated.map((p) => ({
-          id: p.id,
-          hasStream: !!p.stream,
-          streamId: p.stream?.id,
-          tracks: p.stream?.getTracks().length || 0,
-        })),
-      )
-
-      return updated
-    })
-  }, [])
-
   // Create and configure a new RTCPeerConnection for a given remote participant
   const createPeerConnection = useCallback(
-    (participantId: string): RTCPeerConnection => {
-      console.log(`[v0] Creating peer connection for participant: ${participantId}`)
+    (participantId: string, streamToAdd: MediaStream | null): RTCPeerConnection => {
+      let peerConnection = peerConnections.current.get(participantId)
+      if (peerConnection) {
+        console.log(`[PC ${participantId}] Returning existing peer connection.`)
+        return peerConnection
+      }
 
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
+      console.log(`[PC ${participantId}] Creating new peer connection.`)
+      peerConnection = new RTCPeerConnection({
+        iceServers: ICE_SERVERS,
+        iceCandidatePoolSize: 10,
+        bundlePolicy: "max-bundle",
+        rtcpMuxPolicy: "require",
       })
 
-      // Enhanced track handling
-      pc.ontrack = (event) => {
-        console.log(`[v0] Received track from ${participantId}:`, event.track.kind, event.track.enabled)
-        handleTrackEvent(event, participantId)
+      // Add local tracks
+      if (streamToAdd?.getTracks().length) {
+        streamToAdd.getTracks().forEach(track => {
+          console.log(`[PC ${participantId}] Adding ${track.kind} track`)
+          peerConnection!.addTrack(track, streamToAdd)
+        })
+        console.log(`[PC ${participantId}] Added ${streamToAdd.getTracks().length} tracks`)
       }
 
       // Handle ICE candidates
-      pc.onicecandidate = (event) => {
+      peerConnection.onicecandidate = (event) => {
         if (event.candidate && signalingRef.current && signalingRef.current.connected) {
           signalingRef.current.emit("ice-candidate", {
             candidate: event.candidate,
@@ -302,37 +259,56 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         }
       }
 
+      // Handle remote tracks
+      peerConnection.ontrack = (event) => {
+        console.log(`[PC ${participantId}] ✅ TRACK RECEIVED:`, event.track.kind)
+        
+        const stream = event.streams[0]
+        if (stream) {
+          console.log(`[PC ${participantId}] Using event stream:`, stream.id)
+          setParticipants(prev => 
+            prev.map(p => p.id === participantId ? { ...p, stream } : p)
+          )
+        } else {
+          console.log(`[PC ${participantId}] Creating new stream`)
+          const newStream = new MediaStream([event.track])
+          setParticipants(prev => 
+            prev.map(p => p.id === participantId ? { ...p, stream: newStream } : p)
+          )
+        }
+      }
+
       // Handle connection state changes for this specific peer
-      pc.onconnectionstatechange = () => {
-        console.log(`[PC ${participantId}] Peer connection state changed to:`, pc?.connectionState)
-        setConnectionState(pc?.connectionState || "new")
+      peerConnection.onconnectionstatechange = () => {
+        console.log(`[PC ${participantId}] Peer connection state changed to:`, peerConnection?.connectionState)
+        setConnectionState(peerConnection?.connectionState || "new")
 
         // Handle failed connections
-        if (pc?.connectionState === "failed") {
+        if (peerConnection?.connectionState === "failed") {
           console.warn(`[PC ${participantId}] Connection failed, attempting to restart ICE`)
-          pc.restartIce()
+          peerConnection.restartIce()
         }
       }
 
       // Handle signaling state changes
-      pc.onsignalingstatechange = () => {
-        console.log(`[PC ${participantId}] Signaling state changed to:`, pc?.signalingState)
+      peerConnection.onsignalingstatechange = () => {
+        console.log(`[PC ${participantId}] Signaling state changed to:`, peerConnection?.signalingState)
       }
 
       // Handle ICE connection state changes
-      pc.oniceconnectionstatechange = () => {
-        console.log(`[PC ${participantId}] ICE connection state changed to:`, pc?.iceConnectionState)
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(`[PC ${participantId}] ICE connection state changed to:`, peerConnection?.iceConnectionState)
 
-        if (pc?.iceConnectionState === "failed") {
+        if (peerConnection?.iceConnectionState === "failed") {
           console.warn(`[PC ${participantId}] ICE connection failed, restarting ICE`)
-          pc.restartIce()
+          peerConnection.restartIce()
         }
       }
 
-      peerConnections.current.set(participantId, pc)
-      return pc
+      peerConnections.current.set(participantId, peerConnection)
+      return peerConnection
     },
-    [handleTrackEvent],
+    [], // Dependencies are handled by passing streamToAdd
   )
 
   // Function to start sending pings to the server
@@ -431,16 +407,18 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         setParticipants((prev) => [...prev, { ...participant, stream: undefined, status: "online" }])
 
         // Create peer connection and offer
-        const peerConnection = createPeerConnection(participant.id)
+        const peerConnection = createPeerConnection(participant.id, stream)
         try {
+          console.log(`[Socket] Creating offer for ${participant.id}`)
           const offer = await peerConnection.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: true,
           })
           await peerConnection.setLocalDescription(offer)
+          console.log(`[Socket] ✅ Offer created and sent to ${participant.id}`)
           socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
         } catch (e) {
-          console.error(`[Socket] Offer error:`, e)
+          console.error(`[Socket] ❌ Offer error:`, e)
         }
       })
 
@@ -449,7 +427,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         setParticipants(currentParticipants.map((p: any) => ({ ...p, stream: undefined, status: "online" })))
 
         for (const participant of currentParticipants) {
-          const peerConnection = createPeerConnection(participant.id)
+          const peerConnection = createPeerConnection(participant.id, stream)
           try {
             const offer = await peerConnection.createOffer({
               offerToReceiveAudio: true,
@@ -476,15 +454,16 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       socket.on("offer", async ({ offer, senderId }) => {
         console.log(`[Socket] Received offer from ${senderId}`)
-        const peerConnection = createPeerConnection(senderId)
+        const peerConnection = createPeerConnection(senderId, stream)
         try {
+          console.log(`[Socket] Processing offer from ${senderId}`)
           await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
           const answer = await peerConnection.createAnswer()
           await peerConnection.setLocalDescription(answer)
-          console.log(`[Socket] Sending answer to ${senderId}`)
+          console.log(`[Socket] ✅ Answer created and sent to ${senderId}`)
           socket.emit("answer", { answer, targetId: senderId, senderId: socket.id })
         } catch (e) {
-          console.error(`[Socket] Answer error for ${senderId}:`, e)
+          console.error(`[Socket] ❌ Answer error:`, e)
         }
       })
 
@@ -527,11 +506,41 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("user-muted", ({ participantId, isMuted }) => {
-        setParticipants((prev) => prev.map((p) => (p.id === participantId ? { ...p, isMuted: isMuted } : p)))
+        console.log(`[Socket] User ${participantId} muted: ${isMuted}`)
+        setParticipants((prev) =>
+          prev.map((p) => {
+            if (p.id === participantId) {
+              if (p.stream) {
+                const audioTrack = p.stream.getAudioTracks()[0]
+                if (audioTrack) {
+                  audioTrack.enabled = !isMuted
+                  console.log(`[Socket] Updated audio track enabled: ${audioTrack.enabled}`)
+                }
+              }
+              return { ...p, isMuted: isMuted }
+            }
+            return p
+          }),
+        )
       })
 
       socket.on("user-video-toggled", ({ participantId, isVideoOff }) => {
-        setParticipants((prev) => prev.map((p) => (p.id === participantId ? { ...p, isVideoOff: isVideoOff } : p)))
+        console.log(`[Socket] User ${participantId} video off: ${isVideoOff}`)
+        setParticipants((prev) =>
+          prev.map((p) => {
+            if (p.id === participantId) {
+              if (p.stream) {
+                const videoTrack = p.stream.getVideoTracks()[0]
+                if (videoTrack) {
+                  videoTrack.enabled = !isVideoOff
+                  console.log(`[Socket] Updated video track enabled: ${videoTrack.enabled}`)
+                }
+              }
+              return { ...p, isVideoOff: isVideoOff }
+            }
+            return p
+          }),
+        )
       })
 
       socket.on("raise-hand-toggled", ({ participantId, isRaiseHand }) => {
@@ -647,6 +656,42 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         setError(errorMessage)
         setIsConnected(false)
         setIsReconnecting(true) // Keep trying to reconnect
+      })
+
+      socket.on("participant-muted", ({ participantId, isMuted }) => {
+        console.log(`[Socket] Participant ${participantId} ${isMuted ? "muted" : "unmuted"}`)
+        setParticipants((prev) =>
+          prev.map((p) => {
+            if (p.id === participantId) {
+              if (p.stream) {
+                const audioTrack = p.stream.getAudioTracks()[0]
+                if (audioTrack) {
+                  audioTrack.enabled = !isMuted
+                }
+              }
+              return { ...p, isMuted }
+            }
+            return p
+          }),
+        )
+      })
+
+      socket.on("participant-video-toggled", ({ participantId, isVideoOff }) => {
+        console.log(`[Socket] Participant ${participantId} video ${isVideoOff ? "off" : "on"}`)
+        setParticipants((prev) =>
+          prev.map((p) => {
+            if (p.id === participantId) {
+              if (p.stream) {
+                const videoTrack = p.stream.getVideoTracks()[0]
+                if (videoTrack) {
+                  videoTrack.enabled = !isVideoOff
+                }
+              }
+              return { ...p, isVideoOff }
+            }
+            return p
+          }),
+        )
       })
 
       signalingRef.current = socket
@@ -778,6 +823,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
         setParticipants((prev) => prev.map((p) => (p.id === localParticipantId ? { ...p, isMuted } : p)))
 
+        // Emit to other participants
         if (signalingRef.current && signalingRef.current.connected) {
           signalingRef.current.emit("user-muted", {
             participantId: signalingRef.current.id,
@@ -799,19 +845,30 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0]
       if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled
+        const newVideoOffState = !videoTrack.enabled
+        videoTrack.enabled = !newVideoOffState
+
         console.log(`Local video toggled: ${videoTrack.enabled ? "on" : "off"}`)
+
+        // Update local participant state immediately
+        setParticipants((prev) =>
+          prev.map((p) => (p.id === signalingRef.current?.id ? { ...p, isVideoOff: newVideoOffState } : p)),
+        )
+
+        // Emit to other participants
         if (signalingRef.current && signalingRef.current.connected) {
           signalingRef.current.emit("user-video-toggled", {
             participantId: signalingRef.current.id,
-            isVideoOff: !videoTrack.enabled,
+            isVideoOff: newVideoOffState,
           })
         }
       } else {
         console.warn("No video track found in local stream to toggle video.")
+        setError("No camera available to enable/disable")
       }
     } else {
       console.warn("No local stream available to toggle video.")
+      setError("No video stream available")
     }
   }, [localStream])
 
@@ -889,28 +946,82 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     [localStream],
   )
 
+  // Stop screen sharing
+  const stopScreenShare = useCallback(async () => {
+    if (!localStream) return
+
+    try {
+      const currentAudioTrack = localStream.getAudioTracks()[0]
+      const currentAudioEnabled = currentAudioTrack?.enabled || false
+
+      const cameraAndMicStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      })
+      console.log("Restored camera and mic stream:", cameraAndMicStream)
+
+      const newVideoTrack = cameraAndMicStream.getVideoTracks()[0]
+      const newAudioTrack = cameraAndMicStream.getAudioTracks()[0]
+
+      if (newAudioTrack) {
+        newAudioTrack.enabled = currentAudioEnabled
+      }
+
+      peerConnections.current.forEach((pc) => {
+        const videoSender = pc.getSenders().find((s) => s.track?.kind === "video")
+        if (videoSender) {
+          console.log("Replacing video track with camera on peer connection.")
+          videoSender.replaceTrack(newVideoTrack)
+        }
+        const audioSender = pc.getSenders().find((s) => s.track?.kind === "audio")
+        if (audioSender && newAudioTrack) {
+          console.log("Replacing audio track with mic on peer connection.")
+          audioSender.replaceTrack(newAudioTrack)
+        }
+      })
+
+      const oldTracks = localStream.getTracks()
+      oldTracks.forEach((track) => {
+        localStream.removeTrack(track)
+        track.stop()
+      })
+
+      localStream.addTrack(newVideoTrack)
+      if (newAudioTrack) {
+        localStream.addTrack(newAudioTrack)
+      }
+
+      setLocalStream(localStream)
+      setIsScreenSharing(false)
+      console.log("Screen sharing stopped, camera restored.")
+    } catch (err) {
+      console.error("Failed to stop screen sharing or get camera back:", err)
+      setError("Failed to stop screen sharing or restore camera. Please refresh.")
+    }
+  }, [localStream])
+
   // Start screen sharing
   const startScreenShare = useCallback(async () => {
     if (!localStream) {
-      setError("No local stream available to share screen.")
+      setError("No local stream available for screen sharing")
       return
     }
+
     try {
-      console.log("Attempting to start screen sharing...")
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30 },
-          preferCurrentTab: false,
-          selfBrowserSurface: "exclude",
-        },
+        video: true,
         audio: true,
       })
-      console.log("Screen stream acquired:", screenStream)
 
       const screenVideoTrack = screenStream.getVideoTracks()[0]
       const screenAudioTrack = screenStream.getAudioTracks()[0]
+
+      const originalAudioTrack = localStream.getAudioTracks()[0]
+      const wasAudioEnabled = originalAudioTrack?.enabled || false
 
       peerConnections.current.forEach((pc) => {
         const videoSender = pc.getSenders().find((s) => s.track?.kind === "video")
@@ -940,6 +1051,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           oldAudioTrack.stop()
         }
         localStream.addTrack(screenAudioTrack)
+        screenAudioTrack.enabled = wasAudioEnabled
       }
 
       setLocalStream(localStream)
@@ -952,84 +1064,9 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       }
     } catch (err) {
       console.error("Failed to start screen sharing:", err)
-      if (err instanceof DOMException && err.name === "NotAllowedError") {
-        setError("Screen sharing permission denied. Please allow screen sharing.")
-      } else {
-        setError("Failed to start screen sharing. User denied or error occurred.")
-      }
+      setError("Failed to start screen sharing. Please check permissions.")
     }
-  }, [localStream])
-
-  // Stop screen sharing
-  const stopScreenShare = useCallback(async () => {
-    if (!localStream) return
-
-    console.log("Attempting to stop screen sharing and restore camera...")
-    try {
-      localStream.getTracks().forEach((track) => {
-        if (track.kind === "video" && track.readyState === "live" && track.label.includes("screen")) {
-          console.log("Stopping screen video track.")
-          track.stop()
-          localStream.removeTrack(track)
-        }
-        if (track.kind === "audio" && track.readyState === "live" && track.label.includes("screen")) {
-          console.log("Stopping screen audio track.")
-          track.stop()
-          localStream.removeTrack(track)
-        }
-      })
-
-      const cameraAndMicStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 },
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      })
-      console.log("Restored camera and mic stream:", cameraAndMicStream)
-
-      const newVideoTrack = cameraAndMicStream.getVideoTracks()[0]
-      const newAudioTrack = cameraAndMicStream.getAudioTracks()[0]
-
-      peerConnections.current.forEach((pc) => {
-        const videoSender = pc.getSenders().find((s) => s.track?.kind === "video")
-        if (videoSender) {
-          console.log("Replacing video track with camera on peer connection.")
-          videoSender.replaceTrack(newVideoTrack)
-        }
-        const audioSender = pc.getSenders().find((s) => s.track?.kind === "audio")
-        if (audioSender) {
-          console.log("Replacing audio track with mic on peer connection.")
-          audioSender.replaceTrack(newAudioTrack)
-        }
-      })
-
-      localStream.addTrack(newVideoTrack)
-      localStream.addTrack(newAudioTrack)
-      setLocalStream(localStream)
-      setIsScreenSharing(false)
-      console.log("Screen sharing stopped, camera restored.")
-    } catch (err) {
-      console.error("Failed to stop screen sharing or get camera back:", err)
-      setError("Failed to stop screen sharing or restore camera. Please refresh.")
-    }
-  }, [localStream])
-
-  // Send message (for chat)
-  const sendMessage = useCallback((message: string) => {
-    if (signalingRef.current && signalingRef.current.connected) {
-      signalingRef.current.emit("chat-message", {
-        message,
-        senderId: signalingRef.current.id,
-        timestamp: new Date().toISOString(),
-      })
-    }
-  }, [])
+  }, [localStream, stopScreenShare])
 
   // Cleanup on unmount - now leaveRoom is stable, so this only runs on unmount
   useEffect(() => {
@@ -1068,5 +1105,3 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     setBufferedChatMessages,
   }
 }
-
-export default useWebRTC
