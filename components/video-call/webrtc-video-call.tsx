@@ -349,14 +349,71 @@ export default function WebRTCVideoCall() {
         ...participants.map(p => ({ ...p, isLocal: false }))
     ]
 
-    const getGridColsClass = (count: number) => {
-        if (viewMode === 'speaker' && pinnedParticipant) return "grid-cols-1"
-        if (count === 1) return "grid-cols-1"
-        if (count === 2) return "grid-cols-1 lg:grid-cols-2"
-        if (count <= 4) return "grid-cols-2"
-        if (count <= 6) return "grid-cols-2 lg:grid-cols-3"
-        if (count <= 9) return "grid-cols-2 md:grid-cols-3"
-        return "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+    const getGridLayout = (count: number) => {
+        if (viewMode === 'speaker' && pinnedParticipant) {
+            return {
+                gridClass: "grid-cols-1",
+                aspectRatio: "aspect-video",
+                maxHeight: "h-full"
+            }
+        }
+        
+        // Responsive grid based on participant count
+        if (count === 1) {
+            return {
+                gridClass: "grid-cols-1",
+                aspectRatio: "aspect-video",
+                maxHeight: "max-h-[80vh]"
+            }
+        }
+        if (count === 2) {
+            return {
+                gridClass: "grid-cols-1 sm:grid-cols-2",
+                aspectRatio: "aspect-video",
+                maxHeight: "max-h-[70vh]"
+            }
+        }
+        if (count <= 4) {
+            return {
+                gridClass: "grid-cols-2",
+                aspectRatio: "aspect-video",
+                maxHeight: "max-h-[60vh]"
+            }
+        }
+        if (count <= 6) {
+            return {
+                gridClass: "grid-cols-2 md:grid-cols-3",
+                aspectRatio: "aspect-[4/3]",
+                maxHeight: "max-h-[50vh]"
+            }
+        }
+        if (count <= 9) {
+            return {
+                gridClass: "grid-cols-2 md:grid-cols-3",
+                aspectRatio: "aspect-[4/3]",
+                maxHeight: "max-h-[45vh]"
+            }
+        }
+        if (count <= 12) {
+            return {
+                gridClass: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
+                aspectRatio: "aspect-square",
+                maxHeight: "max-h-[40vh]"
+            }
+        }
+        if (count <= 16) {
+            return {
+                gridClass: "grid-cols-3 md:grid-cols-4",
+                aspectRatio: "aspect-square",
+                maxHeight: "max-h-[35vh]"
+            }
+        }
+        // For very large groups (16+)
+        return {
+            gridClass: "grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6",
+            aspectRatio: "aspect-square",
+            maxHeight: "max-h-[30vh]"
+        }
     }
 
     if (showPermissionModal) {
@@ -433,38 +490,54 @@ export default function WebRTCVideoCall() {
 
                 {/* Main Video Area */}
                 <div className="flex-1 relative bg-gray-950 overflow-hidden">
-                    {/* View Mode Controls */}
-                    <div className="absolute top-4 left-4 z-10 flex space-x-2">
+                    {/* Enhanced View Mode Controls */}
+                    <div className="absolute top-2 sm:top-4 left-2 sm:left-4 z-10 flex flex-wrap gap-1 sm:gap-2">
                         <Button
                             variant={viewMode === 'gallery' ? 'default' : 'secondary'}
                             size="sm"
                             onClick={() => setViewMode('gallery')}
-                            className="h-8 px-3 text-xs"
+                            className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
                         >
-                            <Grid3X3 className="w-3 h-3 mr-1" />
-                            Gallery
+                            <Grid3X3 className="w-3 h-3 sm:mr-1" />
+                            <span className="hidden sm:inline">Gallery</span>
                         </Button>
                         <Button
                             variant={viewMode === 'speaker' ? 'default' : 'secondary'}
                             size="sm"
                             onClick={() => setViewMode('speaker')}
-                            className="h-8 px-3 text-xs"
+                            className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
                         >
-                            <User className="w-3 h-3 mr-1" />
-                            Speaker
+                            <User className="w-3 h-3 sm:mr-1" />
+                            <span className="hidden sm:inline">Speaker</span>
                         </Button>
+                        <Button
+                            variant={viewMode === 'focus' ? 'default' : 'secondary'}
+                            size="sm"
+                            onClick={() => setViewMode('focus')}
+                            className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
+                        >
+                            <Maximize className="w-3 h-3 sm:mr-1" />
+                            <span className="hidden sm:inline">Focus</span>
+                        </Button>
+                        {allParticipants.length > 6 && (
+                            <div className="bg-black/50 backdrop-blur-sm rounded px-2 py-1 text-xs text-white">
+                                {allParticipants.length} users
+                            </div>
+                        )}
                     </div>
 
-                    {/* Video Grid */}
-                    <div className="h-full p-2 sm:p-4 lg:p-6">
-                        <div className={`h-full grid ${getGridColsClass(allParticipants.length)} gap-2 sm:gap-3 lg:gap-4`}>
+                    {/* Enhanced Video Grid */}
+                    <div className="h-full p-2 sm:p-4 lg:p-6 overflow-auto">
+                        <div className={`grid ${getGridLayout(allParticipants.length).gridClass} gap-1 sm:gap-2 lg:gap-3 auto-rows-max`}>
                             {allParticipants.map(participant => (
                                 <Card
                                     key={participant.id}
-                                    className={`relative overflow-hidden bg-gray-800 border-gray-600/50 rounded-lg lg:rounded-xl shadow-xl group aspect-video hover:border-blue-500/50 transition-all duration-200 hover:shadow-2xl ${
+                                    className={`relative overflow-hidden bg-gray-800 border-gray-600/50 rounded-md sm:rounded-lg lg:rounded-xl shadow-lg group ${getGridLayout(allParticipants.length).aspectRatio} ${getGridLayout(allParticipants.length).maxHeight} hover:border-blue-500/50 transition-all duration-200 hover:shadow-xl ${
                                         pinnedParticipant === participant.id ? 'ring-2 ring-blue-500' : ''
                                     } ${
                                         speakingParticipants.has(participant.id) ? 'ring-2 ring-green-400 border-green-400/50' : ''
+                                    } ${
+                                        allParticipants.length > 9 ? 'min-h-[120px]' : allParticipants.length > 4 ? 'min-h-[150px]' : 'min-h-[200px]'
                                     }`}
                                 >
                                     {participant.stream ? (
@@ -537,15 +610,17 @@ export default function WebRTCVideoCall() {
                                             data-participant={participant.id}
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                            <div className="text-center">
-                                                <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                    <span className="text-xl font-semibold text-gray-300">
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                                            <div className="text-center p-2">
+                                                <div className={`${allParticipants.length > 12 ? 'w-8 h-8' : allParticipants.length > 6 ? 'w-12 h-12' : 'w-16 h-16'} bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center mx-auto mb-2`}>
+                                                    <span className={`${allParticipants.length > 12 ? 'text-sm' : allParticipants.length > 6 ? 'text-lg' : 'text-xl'} font-semibold text-gray-200`}>
                                                         {participant.name.split(" ").map(n => n[0]).join("")}
                                                     </span>
                                                 </div>
-                                                <p className="text-gray-400">{participant.name}</p>
-                                                <p className="text-gray-500 text-sm mt-1">
+                                                <p className={`text-gray-300 ${allParticipants.length > 12 ? 'text-xs' : allParticipants.length > 6 ? 'text-sm' : 'text-base'} truncate`}>
+                                                    {allParticipants.length > 16 ? participant.name.split(' ')[0] : participant.name}
+                                                </p>
+                                                <p className={`text-gray-500 ${allParticipants.length > 12 ? 'text-xs' : 'text-sm'} mt-1`}>
                                                     {participant.isVideoOff ? "Camera off" : "Connecting..."}
                                                 </p>
                                             </div>
@@ -591,29 +666,35 @@ export default function WebRTCVideoCall() {
                                         </div>
                                     </div>
 
-                                    {/* Participant Info */}
-                                    <div className="absolute bottom-3 left-3 flex items-center space-x-2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2">
-                                        <Avatar className="w-6 h-6 border border-white/30">
-                                            <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                                {participant.name.split(" ").map(n => n[0]).join("")}
-                                            </AvatarFallback>
-                                        </Avatar>
+                                    {/* Responsive Participant Info */}
+                                    <div className={`absolute bottom-1 sm:bottom-2 lg:bottom-3 left-1 sm:left-2 lg:left-3 right-1 sm:right-2 lg:right-3 flex items-center space-x-1 sm:space-x-2 bg-black/70 backdrop-blur-sm rounded-md sm:rounded-lg px-2 sm:px-3 py-1 sm:py-2 ${
+                                        allParticipants.length > 12 ? 'text-xs' : allParticipants.length > 6 ? 'text-sm' : 'text-sm'
+                                    }`}>
+                                        {allParticipants.length <= 9 && (
+                                            <Avatar className={`${allParticipants.length > 6 ? 'w-4 h-4' : 'w-5 h-5 sm:w-6 sm:h-6'} border border-white/30 flex-shrink-0`}>
+                                                <AvatarFallback className={`bg-gray-700 text-gray-300 ${allParticipants.length > 6 ? 'text-xs' : 'text-xs sm:text-sm'}`}>
+                                                    {participant.name.split(" ").map(n => n[0]).join("")}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        )}
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-medium text-white truncate">{participant.name}</p>
+                                            <p className={`font-medium text-white truncate ${allParticipants.length > 12 ? 'text-xs' : 'text-xs sm:text-sm'}`}>
+                                                {allParticipants.length > 16 ? participant.name.split(' ')[0] : participant.name}
+                                            </p>
                                             <div className="flex items-center space-x-1">
                                                 {participant.isMuted ? (
-                                                    <MicOff className="w-3 h-3 text-red-400" />
+                                                    <MicOff className={`${allParticipants.length > 12 ? 'w-2 h-2' : 'w-3 h-3'} text-red-400`} />
                                                 ) : (
-                                                    <Mic className={`w-3 h-3 ${
+                                                    <Mic className={`${allParticipants.length > 12 ? 'w-2 h-2' : 'w-3 h-3'} ${
                                                         speakingParticipants.has(participant.id) 
                                                             ? 'text-green-400 animate-pulse' 
                                                             : 'text-gray-400'
                                                     }`} />
                                                 )}
-                                                {participant.isHost && <Crown className="w-3 h-3 text-yellow-400" />}
-                                                {participant.isRaiseHand && <Hand className="w-3 h-3 text-yellow-400" />}
+                                                {participant.isHost && <Crown className={`${allParticipants.length > 12 ? 'w-2 h-2' : 'w-3 h-3'} text-yellow-400`} />}
+                                                {participant.isRaiseHand && <Hand className={`${allParticipants.length > 12 ? 'w-2 h-2' : 'w-3 h-3'} text-yellow-400`} />}
                                                 {speakingParticipants.has(participant.id) && (
-                                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                                                    <div className={`${allParticipants.length > 12 ? 'w-1 h-1' : 'w-2 h-2'} bg-green-400 rounded-full animate-pulse`} />
                                                 )}
                                             </div>
                                         </div>
@@ -652,31 +733,7 @@ export default function WebRTCVideoCall() {
                         </div>
                     </div>
 
-                    {/* AI Transcription */}
-                    {aiTranscription && isConnected && (
-                        <div className="absolute bottom-24 left-4 right-4 lg:right-1/2 lg:mr-2">
-                            <Card className="bg-gray-900/95 backdrop-blur-md border-gray-600/50 p-4 rounded-xl shadow-2xl">
-                                <div className="flex items-start space-x-3">
-                                    <FileText className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-gray-200 leading-relaxed">
-                                            <span className="text-blue-400 font-semibold">Sarah:</span> "I think we should focus on the AI integration features for the next sprint..."
-                                        </p>
-                                        <div className="flex items-center justify-between mt-2">
-                                            <p className="text-xs text-gray-400 flex items-center">
-                                                <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse" />
-                                                Live transcription powered by AI
-                                            </p>
-                                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                                                <Download className="w-3 h-3 mr-1" />
-                                                Save
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Card>
-                        </div>
-                    )}
+
                 </div>
 
                 {/* Enhanced Bottom Toolbar */}

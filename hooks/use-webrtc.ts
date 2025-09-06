@@ -589,10 +589,14 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
             }
           }, 2000)
         } else if (err.type === "TransportError") {
-          errorMessage = "Connection transport error. Switching to backup connection..."
-          // Force polling transport for mobile networks
-          socket.io.opts.transports = ["polling"]
-          setTimeout(() => socket.connect(), 1000)
+          errorMessage = "Connection transport error. Retrying with different method..."
+          // Try reconnecting without changing transports first
+          setTimeout(() => {
+            if (!socket.connected) {
+              socket.disconnect()
+              socket.connect()
+            }
+          }, 2000)
         } else if (err.description === 0) {
           errorMessage = "Server connection refused. Please check your network and try again."
         } else {
