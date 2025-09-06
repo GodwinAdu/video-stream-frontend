@@ -237,15 +237,11 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         iceCandidatePoolSize: 10
       })
 
-      // Add local stream tracks immediately if available
-      if (streamToAdd && streamToAdd.getTracks().length > 0) {
-        console.log(`[PC ${participantId}] Adding ${streamToAdd.getTracks().length} local tracks`)
-        streamToAdd.getTracks().forEach((track) => {
-          console.log(`[PC ${participantId}] Adding track: ${track.kind} enabled=${track.enabled}`)
+      // Add local tracks
+      if (streamToAdd?.getTracks().length) {
+        streamToAdd.getTracks().forEach(track => {
           peerConnection!.addTrack(track, streamToAdd)
         })
-      } else {
-        console.warn(`[PC ${participantId}] No local stream to add`)
       }
 
       // Handle ICE candidates
@@ -259,25 +255,29 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         }
       }
 
-      // Handle remote stream - simplified and more reliable
+      // Handle remote stream
       peerConnection.ontrack = (event) => {
-        const [remoteStream] = event.streams
-        console.log(`[PC ${participantId}] Received remote stream:`, {
-          streamId: remoteStream?.id,
-          tracks: remoteStream?.getTracks().map(t => `${t.kind}:${t.enabled}`)
-        })
+        console.log(`[PC ${participantId}] Track received:`, event.track.kind)
         
-        if (remoteStream) {
-          // Force enable all tracks
-          remoteStream.getTracks().forEach(track => {
-            track.enabled = true
-          })
-          
-          // Update participant immediately
-          setParticipants(prev => 
-            prev.map(p => p.id === participantId ? { ...p, stream: remoteStream } : p)
-          )
+        // Get or create remote stream
+        let remoteStream = event.streams[0]
+        if (!remoteStream) {
+          remoteStream = new MediaStream([event.track])
         }
+        
+        // Ensure track is enabled
+        event.track.enabled = true
+        
+        // Update participant with stream
+        setParticipants(prev => 
+          prev.map(p => p.id === participantId ? { ...p, stream: remoteStream } : p)
+        )
+        
+        console.log(`[PC ${participantId}] Stream updated:`, {
+          tracks: remoteStream.getTracks().length,
+          audio: remoteStream.getAudioTracks().length,
+          video: remoteStream.getVideoTracks().length
+        })
       }
 
       // Handle connection state changes for this specific peer
@@ -411,12 +411,14 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         // Create peer connection and offer
         const peerConnection = createPeerConnection(participant.id, stream)
         try {
-          const offer = await peerConnection.createOffer()
+          const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+          })
           await peerConnection.setLocalDescription(offer)
-          console.log(`[Socket] Sending offer to ${participant.id}`)
           socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
         } catch (e) {
-          console.error(`[Socket] Offer error for ${participant.id}:`, e)
+          console.error(`[Socket] Offer error:`, e)
         }
       })
 
@@ -427,12 +429,14 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         for (const participant of currentParticipants) {
           const peerConnection = createPeerConnection(participant.id, stream)
           try {
-            const offer = await peerConnection.createOffer()
+            const offer = await peerConnection.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: true
+            })
             await peerConnection.setLocalDescription(offer)
-            console.log(`[Socket] Sending offer to existing participant ${participant.id}`)
             socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
           } catch (e) {
-            console.error(`[Socket] Offer error for ${participant.id}:`, e)
+            console.error(`[Socket] Offer error:`, e)
           }
         }
       })
