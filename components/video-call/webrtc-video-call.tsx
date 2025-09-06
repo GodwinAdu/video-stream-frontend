@@ -172,27 +172,16 @@ export default function WebRTCVideoCall() {
         participants.forEach(participant => {
             const videoElement = remoteVideoRefs.current.get(participant.id)
             if (videoElement && participant.stream) {
-                console.log('Setting remote video stream for participant:', participant.id, 'stream:', participant.stream.id)
+                console.log('Setting remote video stream for participant:', participant.id)
                 videoElement.srcObject = participant.stream
-                videoElement.muted = false // Ensure remote audio is not muted
-                videoElement.volume = isSpeakerMuted ? 0 : 1
-                const playPromise = videoElement.play()
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.error('Remote video play failed for participant:', participant.id, error)
-                        // Retry after a short delay
-                        setTimeout(() => {
-                            if (videoElement) {
-                                videoElement.play().catch(console.error)
-                            }
-                        }, 100)
-                    })
-                }
+                videoElement.muted = false
+                videoElement.volume = 1
+                videoElement.play().catch(console.error)
             } else if (videoElement) {
                 videoElement.srcObject = null
             }
         })
-    }, [participants, isSpeakerMuted])
+    }, [participants])
 
     useEffect(() => {
         let interval: NodeJS.Timeout
@@ -551,14 +540,9 @@ export default function WebRTCVideoCall() {
                                                     }
                                                     if (el.srcObject !== participant.stream) {
                                                         el.srcObject = participant.stream
-                                                        // Only mute local video to prevent feedback
-                                                        if (participant.isLocal) {
-                                                            el.muted = true
-                                                            el.volume = 0
-                                                        } else {
-                                                            el.muted = false
-                                                            el.volume = isSpeakerMuted ? 0 : 1
-                                                        }
+                                                        // Audio handling: mute local, unmute remote
+                                                        el.muted = participant.isLocal
+                                                        el.volume = participant.isLocal ? 0 : 1
                                                         
                                                         // Force play with better error handling
                                                         const playPromise = el.play()
@@ -595,16 +579,17 @@ export default function WebRTCVideoCall() {
                                                 }
                                             }}
                                             onClick={() => {
-                                                // Enable audio on user interaction for remote participants
+                                                // Force enable audio for remote participants
                                                 if (!participant.isLocal) {
-                                                    const target = document.querySelector(`video[data-participant="${participant.id}"]`) as HTMLVideoElement
-                                                    if (target) {
-                                                        target.muted = false
-                                                        target.volume = 1
-                                                        target.play().then(() => {
-                                                            console.log('✅ Audio enabled for:', participant.name)
-                                                        }).catch(console.error)
-                                                    }
+                                                    const videos = document.querySelectorAll('video')
+                                                    videos.forEach(video => {
+                                                        if (video.srcObject && !video.muted) {
+                                                            video.muted = false
+                                                            video.volume = 1
+                                                            video.play().catch(console.error)
+                                                        }
+                                                    })
+                                                    console.log('🔊 Audio enabled for all participants')
                                                 }
                                             }}
                                             data-participant={participant.id}
