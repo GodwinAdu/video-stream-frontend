@@ -437,17 +437,17 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           return
         }
         
-        // Create peer connection and offer
+        // Create peer connection and offer (existing user creates offer for new user)
         const peerConnection = createPeerConnection(participant.id, stream)
         try {
-          console.log(`[Socket] Creating offer for ${participant.id} with ${stream.getTracks().length} tracks`)
+          console.log(`[Socket] Creating offer for new user ${participant.id}`)
           const offer = await peerConnection.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: true,
           })
           await peerConnection.setLocalDescription(offer)
-          console.log(`[Socket] ✅ Offer created and sent to ${participant.id}`)
-          socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
+          socket.emit("offer", { offer, targetId: participant.id })
+          console.log(`[Socket] ✅ Offer sent to new user ${participant.id}`)
         } catch (e) {
           console.error(`[Socket] ❌ Offer error:`, e)
         }
@@ -461,26 +461,14 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("current-participants", async (currentParticipants) => {
-        console.log("[Socket] Setting up connections with existing participants")
+        console.log("[Socket] Received existing participants:", currentParticipants.length)
         setParticipants(currentParticipants.map((p: any) => ({ ...p, stream: undefined, status: "online" })))
 
-        // Create offers with delay to prevent overwhelming
-        for (let i = 0; i < currentParticipants.length; i++) {
-          const participant = currentParticipants[i]
-          setTimeout(async () => {
-            const peerConnection = createPeerConnection(participant.id, stream)
-            try {
-              const offer = await peerConnection.createOffer({
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: true,
-              })
-              await peerConnection.setLocalDescription(offer)
-              socket.emit("offer", { offer, targetId: participant.id })
-            } catch (e) {
-              console.error(`[Socket] Offer error:`, e)
-            }
-          }, i * 100) // 100ms delay between offers
-        }
+        // New user creates peer connections but waits for offers from existing users
+        currentParticipants.forEach((participant: any) => {
+          console.log(`[Socket] Setting up peer connection for existing user ${participant.id}`)
+          createPeerConnection(participant.id, stream)
+        })
       })
 
       socket.on("user-left", ({ participantId, userName: leftUserName }) => {
