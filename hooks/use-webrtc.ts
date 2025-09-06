@@ -330,7 +330,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     (roomId: string, userName: string, stream: MediaStream) => {
       const socket = io(SIGNALING_SERVER_URL, {
         reconnection: true,
-        reconnectionAttempts: 15,
+        reconnectionAttempts: 5,
         reconnectionDelay: 2000,
         reconnectionDelayMax: 10000,
         randomizationFactor: 0.5,
@@ -548,6 +548,22 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       socket.on("buffered-messages", (messages) => {
         console.log("[Socket] Received buffered messages:", messages)
         setBufferedChatMessages(messages)
+      })
+
+      socket.on("force-disconnect", (data) => {
+        console.log("[Socket] Force disconnect:", data.message)
+        setError(`Connection closed: ${data.message}`)
+        // Don't auto-reconnect on force disconnect
+        socket.disconnect()
+        leaveRoom()
+      })
+
+      socket.on("host-changed", ({ newHostId, newHostName }) => {
+        console.log(`[Socket] Host changed to ${newHostName} (${newHostId})`)
+        setParticipants(prev => prev.map(p => ({ 
+          ...p, 
+          isHost: p.id === newHostId 
+        })))
       })
 
       socket.on("disconnect", (reason) => {
