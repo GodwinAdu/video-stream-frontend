@@ -205,9 +205,6 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   const ICE_SERVERS = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun3.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:19302" },
     // Free TURN servers for testing (replace with your own for production)
     {
       urls: "turn:openrelay.metered.ca:80",
@@ -216,6 +213,11 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     },
     {
       urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
       username: "openrelayproject",
       credential: "openrelayproject",
     },
@@ -237,6 +239,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         iceCandidatePoolSize: 10,
         bundlePolicy: "max-bundle",
         rtcpMuxPolicy: "require",
+        iceTransportPolicy: "all",
       })
 
       // Add local tracks
@@ -248,14 +251,19 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         console.log(`[PC ${participantId}] Added ${streamToAdd.getTracks().length} tracks`)
       }
 
-      // Handle ICE candidates
+      // Handle ICE candidates with better logging
       peerConnection.onicecandidate = (event) => {
-        if (event.candidate && signalingRef.current && signalingRef.current.connected) {
-          signalingRef.current.emit("ice-candidate", {
-            candidate: event.candidate,
-            targetId: participantId,
-            senderId: signalingRef.current.id,
-          })
+        if (event.candidate) {
+          console.log(`[PC ${participantId}] ICE candidate:`, event.candidate.type, event.candidate.protocol)
+          if (signalingRef.current && signalingRef.current.connected) {
+            signalingRef.current.emit("ice-candidate", {
+              candidate: event.candidate,
+              targetId: participantId,
+              senderId: signalingRef.current.id,
+            })
+          }
+        } else {
+          console.log(`[PC ${participantId}] ICE gathering complete`)
         }
       }
 
@@ -283,10 +291,36 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         console.log(`[PC ${participantId}] Peer connection state changed to:`, peerConnection?.connectionState)
         setConnectionState(peerConnection?.connectionState || "new")
 
-        // Handle failed connections
+        // Handle failed connections with retry logic
         if (peerConnection?.connectionState === "failed") {
-          console.warn(`[PC ${participantId}] Connection failed, attempting to restart ICE`)
-          peerConnection.restartIce()
+          console.warn(`[PC ${participantId}] Connection failed, recreating peer connection`)
+          
+          // Close and remove the failed connection
+          peerConnection.close()
+          peerConnections.current.delete(participantId)
+          
+          // Wait a bit then recreate the connection
+          setTimeout(async () => {
+            if (localStreamRef.current && signalingRef.current) {
+              console.log(`[PC ${participantId}] Recreating connection after failure`)
+              const newPeerConnection = createPeerConnection(participantId, localStreamRef.current)
+              try {
+                const offer = await newPeerConnection.createOffer({
+                  offerToReceiveAudio: true,
+                  offerToReceiveVideo: true,
+                })
+                await newPeerConnection.setLocalDescription(offer)
+                signalingRef.current.emit("offer", { 
+                  offer, 
+                  targetId: participantId, 
+                  senderId: signalingRef.current.id 
+                })
+                console.log(`[PC ${participantId}] Recovery offer sent`)
+              } catch (e) {
+                console.error(`[PC ${participantId}] Recovery failed:`, e)
+              }
+            }
+          }, 2000)
         }
       }
 
@@ -406,10 +440,16 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         console.log(`[Socket] User joined: ${participant.name} (${participant.id})`)
         setParticipants((prev) => [...prev, { ...participant, stream: undefined, status: "online" }])
 
+        // Wait for local stream to be ready
+        if (!stream || stream.getTracks().length === 0) {
+          console.error(`[Socket] No local stream available for ${participant.id}`)
+          return
+        }
+        
         // Create peer connection and offer
         const peerConnection = createPeerConnection(participant.id, stream)
         try {
-          console.log(`[Socket] Creating offer for ${participant.id}`)
+          console.log(`[Socket] Creating offer for ${participant.id} with ${stream.getTracks().length} tracks`)
           const offer = await peerConnection.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: true,
@@ -489,16 +529,20 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("ice-candidate", async ({ candidate, senderId }) => {
-        // console.log(`[Socket] Received ICE candidate from ${senderId}.`) // Too verbose
+        console.log(`[Socket] Received ICE candidate from ${senderId}:`, candidate.type)
         const peerConnection = peerConnections.current.get(senderId)
         if (peerConnection) {
           try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-            // console.log(`[Socket] Added ICE candidate for ${senderId}.`) // Too verbose
+            // Check if we can add the candidate
+            if (peerConnection.remoteDescription) {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+              console.log(`[Socket] ✅ Added ICE candidate for ${senderId}`)
+            } else {
+              console.warn(`[Socket] ⏳ No remote description yet for ${senderId}, candidate may be queued`)
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+            }
           } catch (e) {
-            console.error(`[Socket] Error adding received ICE candidate for ${senderId}:`, e)
-            // This error can sometimes happen if candidate is already added or session description is not set yet.
-            // It's often benign, but worth logging.
+            console.error(`[Socket] ❌ Error adding ICE candidate for ${senderId}:`, e)
           }
         } else {
           console.warn(`[Socket] Peer connection for ${senderId} not found when receiving ICE candidate.`)
