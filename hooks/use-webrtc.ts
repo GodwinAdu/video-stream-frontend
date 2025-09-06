@@ -228,25 +228,24 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       let peerConnection = peerConnections.current.get(participantId)
       if (peerConnection) {
         console.log(`[PC ${participantId}] Returning existing peer connection.`)
-        return peerConnection // Return existing if already created
+        return peerConnection
       }
 
       console.log(`[PC ${participantId}] Creating new peer connection.`)
-      peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+      peerConnection = new RTCPeerConnection({ 
+        iceServers: ICE_SERVERS,
+        iceCandidatePoolSize: 10
+      })
 
-      // Add local stream tracks to the new peer connection
+      // Add local stream tracks immediately if available
       if (streamToAdd && streamToAdd.getTracks().length > 0) {
-        console.log(`[PC ${participantId}] Adding ${streamToAdd.getTracks().length} local tracks to peer connection`)
+        console.log(`[PC ${participantId}] Adding ${streamToAdd.getTracks().length} local tracks`)
         streamToAdd.getTracks().forEach((track) => {
-          console.log(`[PC ${participantId}] Adding local track: ${track.kind} (enabled: ${track.enabled}, readyState: ${track.readyState})`)
-          if (peerConnection) {
-            const sender = peerConnection.addTrack(track, streamToAdd)
-            console.log(`[PC ${participantId}] Added track sender:`, sender)
-          }
+          console.log(`[PC ${participantId}] Adding track: ${track.kind} enabled=${track.enabled}`)
+          peerConnection!.addTrack(track, streamToAdd)
         })
-        console.log(`[PC ${participantId}] Total senders after adding tracks:`, peerConnection?.getSenders().length)
       } else {
-        console.warn(`[PC ${participantId}] No local stream or tracks to add to peer connection`)
+        console.warn(`[PC ${participantId}] No local stream to add`)
       }
 
       // Handle ICE candidates
@@ -260,47 +259,25 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         }
       }
 
-      // Handle remote stream
+      // Handle remote stream - simplified and more reliable
       peerConnection.ontrack = (event) => {
-        console.log(`[PC ${participantId}] ontrack event:`, event)
         const [remoteStream] = event.streams
+        console.log(`[PC ${participantId}] Received remote stream:`, {
+          streamId: remoteStream?.id,
+          tracks: remoteStream?.getTracks().map(t => `${t.kind}:${t.enabled}`)
+        })
         
-        if (!remoteStream) {
-          console.warn(`[PC ${participantId}] No remote stream in ontrack event`)
-          return
-        }
-        
-        console.log(
-          `[PC ${participantId}] Received remote stream ID: ${remoteStream.id}, active: ${remoteStream.active}`,
-        )
-        console.log(
-          `[PC ${participantId}] Stream tracks: ${remoteStream
-            .getTracks()
-            .map((t) => `${t.kind} (enabled: ${t.enabled}, readyState: ${t.readyState})`)
-            .join(", ")}`
-        )
-        
-        // Ensure all tracks are enabled
-        remoteStream.getTracks().forEach(track => {
-          console.log(`[PC ${participantId}] Track ${track.kind}: enabled=${track.enabled}, readyState=${track.readyState}`)
-          if (!track.enabled) {
+        if (remoteStream) {
+          // Force enable all tracks
+          remoteStream.getTracks().forEach(track => {
             track.enabled = true
-            console.log(`[PC ${participantId}] Force enabled ${track.kind} track`)
-          }
-        })
-        
-        // Update participant with stream
-        setParticipants((prev) => {
-          const updated = prev.map((p) => {
-            if (p.id === participantId) {
-              console.log(`[PC ${participantId}] Updating participant ${p.name} with stream`)
-              return { ...p, stream: remoteStream }
-            }
-            return p
           })
-          console.log(`[PC ${participantId}] Updated participants:`, updated.map(p => ({ id: p.id, name: p.name, hasStream: !!p.stream })))
-          return updated
-        })
+          
+          // Update participant immediately
+          setParticipants(prev => 
+            prev.map(p => p.id === participantId ? { ...p, stream: remoteStream } : p)
+          )
+        }
       }
 
       // Handle connection state changes for this specific peer
@@ -428,51 +405,34 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("user-joined", async (participant) => {
-        console.log(`[Socket] User joined: ${participant.name} (${participant.id}). Initiating WebRTC offer.`)
-        setParticipants((prev) => [...prev, { ...participant, stream: undefined, status: "online" }]) // Add status
+        console.log(`[Socket] User joined: ${participant.name} (${participant.id})`)
+        setParticipants(prev => [...prev, { ...participant, stream: undefined, status: "online" }])
         
-        // Wait a bit to ensure local stream is ready
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
+        // Create peer connection and offer
         const peerConnection = createPeerConnection(participant.id, stream)
         try {
-          console.log(`[Socket] Creating offer for ${participant.id} with local stream:`, stream?.id, stream?.getTracks().map(t => t.kind))
-          const offer = await peerConnection.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true
-          })
+          const offer = await peerConnection.createOffer()
           await peerConnection.setLocalDescription(offer)
-          console.log(`[Socket] Created and set local offer for ${participant.id}. Sending offer.`)
+          console.log(`[Socket] Sending offer to ${participant.id}`)
           socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
         } catch (e) {
-          console.error(`[Socket] Error creating/setting offer for ${participant.id}:`, e)
-          setError(`WebRTC error with ${participant.name}: Failed to create offer.`)
+          console.error(`[Socket] Offer error for ${participant.id}:`, e)
         }
       })
 
       socket.on("current-participants", async (currentParticipants) => {
-        console.log("[Socket] Received current participants. Setting up peer connections.")
-        setParticipants(currentParticipants.map((p: any) => ({ ...p, stream: undefined, status: "online" }))) // Add status
-
-        // Wait a bit to ensure local stream is ready
-        await new Promise(resolve => setTimeout(resolve, 100))
+        console.log("[Socket] Setting up connections with existing participants")
+        setParticipants(currentParticipants.map((p: any) => ({ ...p, stream: undefined, status: "online" })))
 
         for (const participant of currentParticipants) {
           const peerConnection = createPeerConnection(participant.id, stream)
           try {
-            console.log(`[Socket] Creating offer for existing participant ${participant.id} with local stream:`, stream?.id, stream?.getTracks().map(t => t.kind))
-            const offer = await peerConnection.createOffer({
-              offerToReceiveAudio: true,
-              offerToReceiveVideo: true
-            })
+            const offer = await peerConnection.createOffer()
             await peerConnection.setLocalDescription(offer)
-            console.log(
-              `[Socket] Created and set local offer for existing participant ${participant.id}. Sending offer.`,
-            )
+            console.log(`[Socket] Sending offer to existing participant ${participant.id}`)
             socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
           } catch (e) {
-            console.error(`[Socket] Error creating/setting offer for existing participant ${participant.id}:`, e)
-            setError(`WebRTC error with ${participant.name}: Failed to create offer.`)
+            console.error(`[Socket] Offer error for ${participant.id}:`, e)
           }
         }
       })
@@ -489,25 +449,16 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("offer", async ({ offer, senderId }) => {
-        console.log(`[Socket] Received offer from ${senderId}. Setting remote description.`)
+        console.log(`[Socket] Received offer from ${senderId}`)
         const peerConnection = createPeerConnection(senderId, stream)
         try {
-          console.log(`[Socket] Processing offer from ${senderId}, signaling state: ${peerConnection.signalingState}`)
-          console.log(`[Socket] Local stream for answer:`, stream?.id, stream?.getTracks().map(t => t.kind))
-          
-          // Check if we're in the right state to set remote description
-          if (peerConnection.signalingState === "stable") {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-            const answer = await peerConnection.createAnswer()
-            await peerConnection.setLocalDescription(answer)
-            console.log(`[Socket] Created and set local answer for ${senderId}. Sending answer.`)
-            socket.emit("answer", { answer, targetId: senderId, senderId: socket.id })
-          } else {
-            console.warn(`[Socket] Invalid signaling state for offer: ${peerConnection.signalingState}`)
-          }
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+          const answer = await peerConnection.createAnswer()
+          await peerConnection.setLocalDescription(answer)
+          console.log(`[Socket] Sending answer to ${senderId}`)
+          socket.emit("answer", { answer, targetId: senderId, senderId: socket.id })
         } catch (e) {
-          console.error(`[Socket] Error processing offer from ${senderId}:`, e)
-          setError(`WebRTC error with ${senderId}: Failed to process offer.`)
+          console.error(`[Socket] Answer error for ${senderId}:`, e)
         }
       })
 
