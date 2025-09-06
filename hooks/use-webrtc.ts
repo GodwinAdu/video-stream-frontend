@@ -201,18 +201,23 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     }
   }, [])
 
-  // Updated ICE Servers to include a placeholder TURN server
+  // Enhanced ICE Servers for mobile compatibility
   const ICE_SERVERS = [
-    { urls: "stun:stun.l.google.com:19302" }, // Google's public STUN server
+    { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
-    // Placeholder TURN server - replace with your actual TURN server details
-    // In a real app, credentials should be fetched securely from a backend.
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    // Free TURN servers for testing (replace with your own for production)
     {
-      urls: "turn:your-turn-server.com:3478", // Replace with your TURN server URL and port
-      username: "your_turn_username", // Replace with your TURN username
-      credential: "your_turn_password", // Replace with your TURN password
-      // IMPORTANT: For production, you MUST use a real TURN server with valid credentials.
-      // This placeholder will NOT work for connections outside of localhost or simple networks.
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject", 
+      credential: "openrelayproject",
     },
   ]
   const SIGNALING_SERVER_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
@@ -320,15 +325,19 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     (roomId: string, userName: string, stream: MediaStream) => {
       const socket = io(SIGNALING_SERVER_URL, {
         reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 15,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
         randomizationFactor: 0.5,
-        timeout: 10000,
+        timeout: 20000,
         path: "/socket.io/",
-        transports: ["websocket", "polling"], // Allow fallback to polling
+        transports: ["polling", "websocket"], // Start with polling for mobile
         upgrade: true,
-        rememberUpgrade: true,
+        rememberUpgrade: false, // Don't remember upgrade for mobile
+        forceNew: false,
+        autoConnect: true,
+        // Mobile-specific settings
+        closeOnBeforeunload: false,
       })
 
       socket.on("connect", () => {
@@ -571,16 +580,28 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         
         let errorMessage = "Failed to connect to meeting server."
         if (err.message === "xhr poll error") {
-          errorMessage = "Network connection failed. Please check your internet connection and try again."
+          errorMessage = "Network connection failed. Trying different connection method..."
+          // Try to reconnect with different transport
+          setTimeout(() => {
+            if (!socket.connected) {
+              socket.io.opts.transports = ["websocket", "polling"]
+              socket.connect()
+            }
+          }, 2000)
         } else if (err.type === "TransportError") {
-          errorMessage = "Connection transport error. The server may be unavailable."
+          errorMessage = "Connection transport error. Switching to backup connection..."
+          // Force polling transport for mobile networks
+          socket.io.opts.transports = ["polling"]
+          setTimeout(() => socket.connect(), 1000)
         } else if (err.description === 0) {
-          errorMessage = "Server connection refused. Please ensure the server is running."
+          errorMessage = "Server connection refused. Please check your network and try again."
+        } else {
+          errorMessage = "Connection failed. Please check your internet connection."
         }
         
         setError(errorMessage)
         setIsConnected(false)
-        setIsReconnecting(false)
+        setIsReconnecting(true) // Keep trying to reconnect
       })
 
       signalingRef.current = socket
