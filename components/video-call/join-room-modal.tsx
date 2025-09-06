@@ -6,20 +6,39 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Video, Mic, MicOff, VideoOff, Settings, Users, Clock, Shield, Loader2 } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Video, Mic, MicOff, VideoOff, Settings, Users, Clock, Shield, Loader2, Plus, Copy, Check } from "lucide-react"
 
 interface JoinRoomDialogProps {
   onJoin: (roomId: string, userName: string) => void
 }
 
 export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
-  const [roomId, setRoomId] = useState("room-abc-123")
+  const [roomId, setRoomId] = useState("")
   const [userName, setUserName] = useState("")
   const [isMuted, setIsMuted] = useState(false)
   const [isVideoOff, setIsVideoOff] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null)
+  const [copied, setCopied] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  const generateRoomId = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    let result = 'room-'
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return result
+  }
+
+  const copyRoomId = async () => {
+    if (roomId) {
+      await navigator.clipboard.writeText(roomId)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   useEffect(() => {
     const initPreview = async () => {
@@ -181,48 +200,121 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
           </CardContent>
         </Card>
 
-        {/* Join Form */}
+        {/* Room Management */}
         <Card className="bg-gray-900/80 backdrop-blur-xl border-gray-700/50 rounded-2xl shadow-2xl">
           <CardHeader className="text-center">
             <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users className="w-8 h-8 text-white" />
             </div>
-            <CardTitle className="text-gray-50 text-2xl font-bold">Join Meeting</CardTitle>
-            <CardDescription className="text-gray-400 mt-2">Ready to connect? Enter your details below</CardDescription>
+            <CardTitle className="text-gray-50 text-2xl font-bold">Video Meeting</CardTitle>
+            <CardDescription className="text-gray-400 mt-2">Create a new room or join an existing one</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="roomId" className="text-gray-300 flex items-center">
-                <Shield className="w-4 h-4 mr-2" />
-                Room ID
-              </Label>
-              <Input
-                id="roomId"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                placeholder="Enter room ID"
-                className="bg-gray-800/50 border-gray-600 text-gray-50 placeholder:text-gray-500 focus:ring-blue-500 focus:border-blue-500 h-12"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="userName" className="text-gray-300">
-                Display Name
-              </Label>
-              <Input
-                id="userName"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                placeholder="Enter your name"
-                className="bg-gray-800/50 border-gray-600 text-gray-50 placeholder:text-gray-500 focus:ring-blue-500 focus:border-blue-500 h-12"
-              />
-            </div>
-
-            <div className="bg-gray-800/30 rounded-xl p-4 space-y-3">
-              <h4 className="text-gray-300 font-medium flex items-center">
-                <Clock className="w-4 h-4 mr-2" />
-                Meeting Info
-              </h4>
+          <CardContent>
+            <Tabs defaultValue="create" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-gray-800/50">
+                <TabsTrigger value="create" className="data-[state=active]:bg-blue-600">Create Room</TabsTrigger>
+                <TabsTrigger value="join" className="data-[state=active]:bg-blue-600">Join Room</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="create" className="space-y-4 mt-6">
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Your Name</Label>
+                  <Input
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="bg-gray-800/50 border-gray-600 text-gray-50 h-12"
+                  />
+                </div>
+                
+                <Button
+                  onClick={() => {
+                    const newRoomId = generateRoomId()
+                    setRoomId(newRoomId)
+                  }}
+                  variant="outline"
+                  className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 h-12"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Generate Room ID
+                </Button>
+                
+                {roomId && (
+                  <div className="bg-gray-800/30 rounded-xl p-4 space-y-3">
+                    <Label className="text-gray-300">Room ID (Share with others)</Label>
+                    <div className="flex space-x-2">
+                      <Input
+                        value={roomId}
+                        readOnly
+                        className="bg-gray-700/50 border-gray-600 text-gray-50 h-10"
+                      />
+                      <Button
+                        onClick={copyRoomId}
+                        variant="outline"
+                        size="sm"
+                        className="border-gray-600 h-10 w-10 p-0"
+                      >
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                <Button
+                  onClick={handleJoin}
+                  disabled={!roomId.trim() || !userName.trim() || isJoining}
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 text-lg rounded-xl"
+                >
+                  {isJoining ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create & Join Room"
+                  )}
+                </Button>
+              </TabsContent>
+              
+              <TabsContent value="join" className="space-y-4 mt-6">
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Room ID</Label>
+                  <Input
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    placeholder="Enter room ID"
+                    className="bg-gray-800/50 border-gray-600 text-gray-50 h-12"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Your Name</Label>
+                  <Input
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="bg-gray-800/50 border-gray-600 text-gray-50 h-12"
+                  />
+                </div>
+                
+                <Button
+                  onClick={handleJoin}
+                  disabled={!roomId.trim() || !userName.trim() || isJoining}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-lg rounded-xl"
+                >
+                  {isJoining ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Joining...
+                    </>
+                  ) : (
+                    "Join Meeting"
+                  )}
+                </Button>
+              </TabsContent>
+            </Tabs>
+            
+            <div className="bg-gray-800/30 rounded-xl p-4 mt-6">
               <div className="grid grid-cols-2 gap-3">
                 <Badge variant="secondary" className="bg-green-600/20 text-green-300 justify-center py-2">
                   <Shield className="w-3 h-3 mr-1" />
@@ -234,25 +326,6 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
                 </Badge>
               </div>
             </div>
-
-            <Button
-              onClick={handleJoin}
-              disabled={!roomId.trim() || !userName.trim() || isJoining}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-lg rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              {isJoining ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Joining...
-                </>
-              ) : (
-                "Join Meeting"
-              )}
-            </Button>
-
-            <p className="text-xs text-gray-500 text-center">
-              By joining, you agree to our terms of service and privacy policy.
-            </p>
           </CardContent>
         </Card>
       </div>

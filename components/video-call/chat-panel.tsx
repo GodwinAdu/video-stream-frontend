@@ -36,8 +36,10 @@ export default function ChatPanel({
   signalingRef,
 }: ChatPanelProps) {
   const [message, setMessage] = useState("")
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  // REMOVE: const { signalingRef } = useWebRTC() // Access the signaling socket
+  const typingTimeoutRef = useRef<NodeJS.Timeout>()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -47,29 +49,44 @@ export default function ChatPanel({
     scrollToBottom()
   }, [messages])
 
-  // Listen for incoming chat messages from the signaling server
+  // Handle typing indicators
   useEffect(() => {
     const socket = signalingRef.current
     if (socket) {
-      const handleIncomingChatMessage = (msg: {
-        message: string
-        senderId: string
-        userName: string
-        timestamp: string
-      }) => {
-        // This is where you would update the `messages` state in the parent component
-        // For now, we'll just log it, as `messages` is passed as a prop.
-        // The parent `WebRTCVideoCall` component should be responsible for updating `chatMessages` state.
-        console.log("Received chat message in ChatPanel:", msg)
-      }
-
-      socket.on("chat-message", handleIncomingChatMessage)
+      socket.on("user-typing", ({ userName, isTyping: typing }) => {
+        setTypingUsers(prev => {
+          if (typing) {
+            return prev.includes(userName) ? prev : [...prev, userName]
+          } else {
+            return prev.filter(user => user !== userName)
+          }
+        })
+      })
 
       return () => {
-        socket.off("chat-message", handleIncomingChatMessage)
+        socket.off("user-typing")
       }
     }
   }, [signalingRef])
+
+  const handleTyping = () => {
+    const socket = signalingRef.current
+    if (socket && !isTyping) {
+      setIsTyping(true)
+      socket.emit("typing", { isTyping: true })
+    }
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      if (socket && isTyping) {
+        setIsTyping(false)
+        socket.emit("typing", { isTyping: false })
+      }
+    }, 1000)
+  }
 
   const handleSend = () => {
     if (message.trim()) {
@@ -158,6 +175,22 @@ export default function ChatPanel({
               </div>
             ))
           )}
+          {/* Typing indicator */}
+          {typingUsers.length > 0 && (
+            <div className="flex items-center space-x-2 text-gray-400 text-sm">
+              <div className="flex space-x-1">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+              </div>
+              <span>
+                {typingUsers.length === 1 
+                  ? `${typingUsers[0]} is typing...` 
+                  : `${typingUsers.length} people are typing...`
+                }
+              </span>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
@@ -168,7 +201,10 @@ export default function ChatPanel({
           <div className="flex-1 relative">
             <Input
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => {
+                setMessage(e.target.value)
+                handleTyping()
+              }}
               placeholder="Type your message..."
               className="bg-gray-800/50 border-gray-600/50 text-gray-50 placeholder:text-gray-400 pr-16 py-3 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-200"
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}

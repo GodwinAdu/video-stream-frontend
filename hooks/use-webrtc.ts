@@ -201,25 +201,14 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     }
   }, [])
 
-  // Enhanced ICE Servers for mobile compatibility
+  // Optimized ICE Servers for faster connection
   const ICE_SERVERS = [
     { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    // Free TURN servers for testing (replace with your own for production)
+    { urls: "stun:stun.cloudflare.com:3478" },
     {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "turn:relay1.expressturn.com:3478",
+      username: "efJBIBF6EWKP2RBDQD",
+      credential: "sMmrZSqZF85OgGVm",
     },
   ]
   const SIGNALING_SERVER_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
@@ -362,29 +351,31 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     (roomId: string, userName: string, stream: MediaStream) => {
       const socket = io(SIGNALING_SERVER_URL, {
         reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 2000,
-        reconnectionDelayMax: 10000,
-        randomizationFactor: 0.5,
-        timeout: 20000,
-        path: "/socket.io/",
-        transports: ["polling", "websocket"], // Start with polling for mobile
+        reconnectionAttempts: 3,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 10000,
+        transports: ["websocket", "polling"],
         upgrade: true,
-        rememberUpgrade: false, // Don't remember upgrade for mobile
-        forceNew: false,
+        forceNew: true,
         autoConnect: true,
-        // Mobile-specific settings
-        closeOnBeforeunload: false,
       })
 
       socket.on("connect", () => {
-        console.log("[Socket] Connected to signaling server:", socket.id)
-        console.log("[Socket] Transport:", socket.io.engine.transport.name)
+        console.log("[Socket] Connected:", socket.id)
         setLocalParticipantId(socket.id)
         setIsConnected(true)
         setIsReconnecting(false)
-        setError(null) // Clear any previous errors
+        setError(null)
+        
+        // Join room with timeout
+        const joinTimeout = setTimeout(() => {
+          setError("Join room timeout. Retrying...")
+          socket.emit("join-room", { roomId, userName })
+        }, 5000)
+        
         socket.emit("join-room", { roomId, userName })
+        socket.once("current-participants", () => clearTimeout(joinTimeout))
         startPinging()
       })
 
@@ -462,22 +453,33 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         }
       })
 
+      socket.on("join-error", ({ message }) => {
+        console.error("[Socket] Join error:", message)
+        setError(message)
+        setIsConnected(false)
+        setTimeout(() => leaveRoom(), 2000)
+      })
+
       socket.on("current-participants", async (currentParticipants) => {
         console.log("[Socket] Setting up connections with existing participants")
         setParticipants(currentParticipants.map((p: any) => ({ ...p, stream: undefined, status: "online" })))
 
-        for (const participant of currentParticipants) {
-          const peerConnection = createPeerConnection(participant.id, stream)
-          try {
-            const offer = await peerConnection.createOffer({
-              offerToReceiveAudio: true,
-              offerToReceiveVideo: true,
-            })
-            await peerConnection.setLocalDescription(offer)
-            socket.emit("offer", { offer, targetId: participant.id, senderId: socket.id })
-          } catch (e) {
-            console.error(`[Socket] Offer error:`, e)
-          }
+        // Create offers with delay to prevent overwhelming
+        for (let i = 0; i < currentParticipants.length; i++) {
+          const participant = currentParticipants[i]
+          setTimeout(async () => {
+            const peerConnection = createPeerConnection(participant.id, stream)
+            try {
+              const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true,
+              })
+              await peerConnection.setLocalDescription(offer)
+              socket.emit("offer", { offer, targetId: participant.id })
+            } catch (e) {
+              console.error(`[Socket] Offer error:`, e)
+            }
+          }, i * 100) // 100ms delay between offers
         }
       })
 
@@ -647,6 +649,37 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         )
       })
 
+      // Host control events
+      socket.on("participant-force-muted", ({ participantId, mute }) => {
+        if (participantId === socket.id && localStream) {
+          const audioTrack = localStream.getAudioTracks()[0]
+          if (audioTrack) {
+            audioTrack.enabled = !mute
+          }
+        }
+        setParticipants(prev => 
+          prev.map(p => p.id === participantId ? { ...p, isMuted: mute } : p)
+        )
+      })
+
+      socket.on("participant-force-video-toggle", ({ participantId, videoOff }) => {
+        if (participantId === socket.id && localStream) {
+          const videoTrack = localStream.getVideoTracks()[0]
+          if (videoTrack) {
+            videoTrack.enabled = !videoOff
+          }
+        }
+        setParticipants(prev => 
+          prev.map(p => p.id === participantId ? { ...p, isVideoOff: videoOff } : p)
+        )
+      })
+
+      socket.on("participant-renamed", ({ participantId, newName }) => {
+        setParticipants(prev => 
+          prev.map(p => p.id === participantId ? { ...p, name: newName } : p)
+        )
+      })
+
       socket.on("disconnect", (reason) => {
         console.log("[Socket] Disconnected from signaling server, reason:", reason)
         setIsConnected(false)
@@ -666,40 +699,10 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("connect_error", (err) => {
-        console.error("[Socket] Socket.io connection error:", err)
-        console.error("Error message:", err.message)
-        console.error("Error description:", err.description)
-        console.error("Error context:", err.context)
-        console.error("Error type:", err.type)
-
-        let errorMessage = "Failed to connect to meeting server."
-        if (err.message === "xhr poll error") {
-          errorMessage = "Network connection failed. Trying different connection method..."
-          // Try to reconnect with different transport
-          setTimeout(() => {
-            if (!socket.connected) {
-              socket.io.opts.transports = ["websocket", "polling"]
-              socket.connect()
-            }
-          }, 2000)
-        } else if (err.type === "TransportError") {
-          errorMessage = "Connection transport error. Retrying with different method..."
-          // Try reconnecting without changing transports first
-          setTimeout(() => {
-            if (!socket.connected) {
-              socket.disconnect()
-              socket.connect()
-            }
-          }, 2000)
-        } else if (err.description === 0) {
-          errorMessage = "Server connection refused. Please check your network and try again."
-        } else {
-          errorMessage = "Connection failed. Please check your internet connection."
-        }
-
-        setError(errorMessage)
+        console.error("[Socket] Connection error:", err.message)
+        setError("Connection failed. Retrying...")
         setIsConnected(false)
-        setIsReconnecting(true) // Keep trying to reconnect
+        setIsReconnecting(true)
       })
 
       socket.on("participant-muted", ({ participantId, isMuted }) => {

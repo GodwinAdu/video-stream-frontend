@@ -86,28 +86,48 @@ const ParticipantGrid = ({
     participants,
     currentPage,
     participantsPerPage,
+    onToggleVideo,
+    speakingParticipants,
 }: {
     participants: Participant[]
     currentPage: number
     participantsPerPage: number
+    onToggleVideo?: () => void
+    speakingParticipants: Set<string>
 }) => {
     const startIndex = currentPage * participantsPerPage
     const endIndex = startIndex + participantsPerPage
     const currentParticipants = participants.slice(startIndex, endIndex)
+    const count = currentParticipants.length
 
-    const getGridClass = (count: number) => {
+    const getResponsiveGrid = () => {
         if (count === 1) return "grid-cols-1"
-        if (count === 2) return "grid-cols-1 lg:grid-cols-2"
+        if (count === 2) return "grid-cols-1 sm:grid-cols-2"
         if (count <= 4) return "grid-cols-2"
-        if (count <= 6) return "grid-cols-2 lg:grid-cols-3"
-        if (count <= 9) return "grid-cols-3"
-        return "grid-cols-3 lg:grid-cols-4"
+        if (count <= 6) return "grid-cols-2 sm:grid-cols-3"
+        if (count <= 9) return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-3"
+        if (count <= 12) return "grid-cols-3 sm:grid-cols-4 lg:grid-cols-4"
+        return "grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+    }
+
+    const getAspectRatio = () => {
+        if (count === 1) return "aspect-video"
+        if (count <= 4) return "aspect-video"
+        if (count <= 9) return "aspect-[4/3]"
+        return "aspect-square"
     }
 
     return (
-        <div className={`grid gap-2 sm:gap-4 h-full ${getGridClass(currentParticipants.length)}`}>
+        <div className={`grid gap-1 sm:gap-2 md:gap-3 lg:gap-4 h-full w-full ${getResponsiveGrid()}`}>
             {currentParticipants.map((participant) => (
-                <ParticipantVideo key={participant.id} participant={participant} isLarge={currentParticipants.length <= 2} />
+                <div key={participant.id} className={`${getAspectRatio()} min-h-0`}>
+                    <ParticipantVideo 
+                        participant={participant} 
+                        isLarge={count <= 2}
+                        onToggleVideo={participant.isLocal ? onToggleVideo : undefined}
+                        isSpeaking={speakingParticipants.has(participant.id)}
+                    />
+                </div>
             ))}
         </div>
     )
@@ -116,13 +136,18 @@ const ParticipantGrid = ({
 const ParticipantVideo = ({
     participant,
     isLarge,
+    onToggleVideo,
+    isSpeaking,
 }: {
     participant: Participant
     isLarge?: boolean
+    onToggleVideo?: () => void
+    isSpeaking?: boolean
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null)
     const [isVideoLoading, setIsVideoLoading] = useState(true)
     const [hasVideoError, setHasVideoError] = useState(false)
+    const [isScreenShare, setIsScreenShare] = useState(false)
 
     useEffect(() => {
         const videoElement = videoRef.current
@@ -137,6 +162,17 @@ const ParticipantVideo = ({
         })
 
         if (participant.stream && participant.stream.active) {
+            // Check if this is screen sharing by looking at video track constraints
+            const videoTrack = participant.stream.getVideoTracks()[0]
+            const isScreenShareStream = videoTrack && (
+                videoTrack.getSettings().displaySurface === 'monitor' ||
+                videoTrack.getSettings().displaySurface === 'window' ||
+                videoTrack.getSettings().displaySurface === 'application' ||
+                videoTrack.label.includes('screen') ||
+                videoTrack.label.includes('Screen')
+            )
+            setIsScreenShare(!!isScreenShareStream)
+
             // Only update if stream is different
             if (videoElement.srcObject !== participant.stream) {
                 videoElement.srcObject = participant.stream
@@ -168,13 +204,15 @@ const ParticipantVideo = ({
         } else {
             videoElement.srcObject = null
             setIsVideoLoading(false)
+            setIsScreenShare(false)
         }
     }, [participant.stream, participant.id, participant.isLocal])
 
     return (
         <div
-            className={`relative bg-gray-800 rounded-xl overflow-hidden group ${isLarge ? "aspect-video" : "aspect-square sm:aspect-video"
-                }`}
+            className={`relative bg-gray-800 rounded-lg sm:rounded-xl overflow-hidden group transition-all duration-200 w-full h-full ${
+                isSpeaking ? "ring-2 sm:ring-4 ring-green-500 ring-opacity-75 shadow-lg shadow-green-500/25" : ""
+            }`}
         >
             {participant.stream && !participant.isVideoOff && !hasVideoError ? (
                 <>
@@ -216,19 +254,83 @@ const ParticipantVideo = ({
                 </div>
             )}
 
-            {/* Participant info overlay */}
-            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-                <div className="flex items-center space-x-2 bg-black/50 rounded-lg px-2 py-1">
-                    <span className="text-white text-sm font-medium truncate">{participant.name}</span>
-                    {participant.isHost && <Crown className="w-3 h-3 text-yellow-400" />}
+            {/* Video controls overlay */}
+            <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Video toggle for local participant */}
+                {participant.isLocal && onToggleVideo && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={onToggleVideo}
+                                    className="h-8 w-8 bg-black/50 hover:bg-black/70 border-0"
+                                >
+                                    {participant.isVideoOff ? <VideoOff className="w-4 h-4 text-white" /> : <Video className="w-4 h-4 text-white" />}
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{participant.isVideoOff ? "Turn on camera" : "Turn off camera"}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
+                
+                {/* Fullscreen button for screen shares */}
+                {isScreenShare && !participant.isLocal && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (videoRef.current) {
+                                            if (videoRef.current.requestFullscreen) {
+                                                videoRef.current.requestFullscreen()
+                                            }
+                                        }
+                                    }}
+                                    className="h-8 w-8 bg-black/50 hover:bg-black/70 border-0"
+                                >
+                                    <Maximize className="w-4 h-4 text-white" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>View screen share in fullscreen</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
+            </div>
+
+            {/* Speaking indicator */}
+            {isSpeaking && (
+                <div className="absolute top-1 sm:top-2 left-1 sm:left-2">
+                    <div className="flex items-center space-x-1 bg-green-500/90 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1">
+                        <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white rounded-full animate-pulse" />
+                        <span className="text-white text-xs font-medium hidden sm:inline">Speaking</span>
+                    </div>
                 </div>
-                <div className="flex items-center space-x-1">
+            )}
+
+            {/* Participant info overlay */}
+            <div className="absolute bottom-1 sm:bottom-2 left-1 sm:left-2 right-1 sm:right-2 flex items-center justify-between">
+                <div className="flex items-center space-x-1 sm:space-x-2 bg-black/50 rounded px-1.5 sm:px-2 py-0.5 sm:py-1 min-w-0 flex-1 mr-2">
+                    <span className="text-white text-xs sm:text-sm font-medium truncate">{participant.name}</span>
+                    {participant.isHost && <Crown className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-yellow-400 flex-shrink-0" />}
+                    {isScreenShare && <Monitor className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-blue-400 flex-shrink-0" />}
+                </div>
+                <div className="flex items-center space-x-0.5 sm:space-x-1 flex-shrink-0">
                     {participant.isMuted ? (
-                        <MicOff className="w-4 h-4 text-red-400" />
+                        <MicOff className="w-3 sm:w-4 h-3 sm:h-4 text-red-400" />
+                    ) : isSpeaking ? (
+                        <Mic className="w-3 sm:w-4 h-3 sm:h-4 text-green-400 animate-pulse" />
                     ) : (
-                        <Mic className="w-4 h-4 text-green-400" />
+                        <Mic className="w-3 sm:w-4 h-3 sm:h-4 text-green-400" />
                     )}
-                    {participant.isRaiseHand && <Hand className="w-4 h-4 text-yellow-400" />}
+                    {participant.isRaiseHand && <Hand className="w-3 sm:w-4 h-3 sm:h-4 text-yellow-400" />}
                 </div>
             </div>
         </div>
@@ -260,7 +362,7 @@ export default function WebRTCVideoCall() {
         toggleVirtualBackground,
         startScreenShare,
         stopScreenShare,
-        sendMessage,
+        // sendMessage, // Remove from destructuring
         getParticipantById,
         signalingRef,
         setBufferedChatMessages,
@@ -307,28 +409,55 @@ export default function WebRTCVideoCall() {
     const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
     const toolbarTimeoutRef = useRef<NodeJS.Timeout>()
 
-    const roomId = "room-abc-123"
+    const [currentRoomId, setCurrentRoomId] = useState<string>("")
 
     // Keyboard shortcuts handlers
     const handleToggleChat = () => setShowChat(!showChat)
     const handleToggleParticipants = () => setShowParticipants(!showParticipants)
 
     // Enhanced message handling
-    const handleIncomingChatMessage = useCallback(
-        (message: { message: string; senderId: string; userName: string; timestamp: string }) => {
+    // Chat message handling
+    const sendChatMessage = useCallback((message: string) => {
+        if (signalingRef.current && localParticipantId) {
+            signalingRef.current.emit("chat-message", {
+                message,
+                senderId: localParticipantId,
+                timestamp: new Date().toISOString(),
+            })
+            
+            // Add to local messages immediately
             setChatMessages((prev) => [
                 ...prev,
                 {
-                    id: `${message.senderId}-${Date.now()}`,
-                    senderId: message.senderId,
-                    userName: message.userName,
-                    content: message.message,
-                    timestamp: new Date(message.timestamp).toLocaleTimeString(),
+                    id: `${localParticipantId}-${Date.now()}`,
+                    senderId: localParticipantId,
+                    userName: "You",
+                    content: message,
+                    timestamp: new Date().toLocaleTimeString(),
                     type: "text",
                 },
             ])
+        }
+    }, [localParticipantId, signalingRef])
+
+    const handleIncomingChatMessage = useCallback(
+        (message: { message: string; senderId: string; userName: string; timestamp: string }) => {
+            // Only add if not from local user (to avoid duplicates)
+            if (message.senderId !== localParticipantId) {
+                setChatMessages((prev) => [
+                    ...prev,
+                    {
+                        id: `${message.senderId}-${Date.now()}`,
+                        senderId: message.senderId,
+                        userName: message.userName,
+                        content: message.message,
+                        timestamp: new Date(message.timestamp).toLocaleTimeString(),
+                        type: "text",
+                    },
+                ])
+            }
         },
-        [],
+        [localParticipantId],
     )
 
     // Auto-hide toolbar
@@ -496,6 +625,7 @@ export default function WebRTCVideoCall() {
 
     const handleJoinRoom = async (roomId: string, userName: string) => {
         try {
+            setCurrentRoomId(roomId)
             await joinRoom(roomId, userName)
             setShowJoinDialog(false)
         } catch (err) {
@@ -564,69 +694,18 @@ export default function WebRTCVideoCall() {
 
     const getGridLayout = (count: number) => {
         if (viewMode === "speaker" && pinnedParticipant) {
-            return {
-                gridClass: "grid-cols-1",
-                aspectRatio: "aspect-video",
-                maxHeight: "h-full",
-            }
+            return "grid-cols-1"
         }
 
-        // Responsive grid based on participant count
-        if (count === 1) {
-            return {
-                gridClass: "grid-cols-1",
-                aspectRatio: "aspect-video",
-                maxHeight: "max-h-[80vh]",
-            }
-        }
-        if (count === 2) {
-            return {
-                gridClass: "grid-cols-1 sm:grid-cols-2",
-                aspectRatio: "aspect-video",
-                maxHeight: "max-h-[70vh]",
-            }
-        }
-        if (count <= 4) {
-            return {
-                gridClass: "grid-cols-2",
-                aspectRatio: "aspect-video",
-                maxHeight: "max-h-[60vh]",
-            }
-        }
-        if (count <= 6) {
-            return {
-                gridClass: "grid-cols-2 md:grid-cols-3",
-                aspectRatio: "aspect-[4/3]",
-                maxHeight: "max-h-[50vh]",
-            }
-        }
-        if (count <= 9) {
-            return {
-                gridClass: "grid-cols-2 md:grid-cols-3",
-                aspectRatio: "aspect-[4/3]",
-                maxHeight: "max-h-[45vh]",
-            }
-        }
-        if (count <= 12) {
-            return {
-                gridClass: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
-                aspectRatio: "aspect-square",
-                maxHeight: "max-h-[40vh]",
-            }
-        }
-        if (count <= 16) {
-            return {
-                gridClass: "grid-cols-3 md:grid-cols-4",
-                aspectRatio: "aspect-square",
-                maxHeight: "max-h-[35vh]",
-            }
-        }
-        // For very large groups (16+)
-        return {
-            gridClass: "grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6",
-            aspectRatio: "aspect-square",
-            maxHeight: "max-h-[30vh]",
-        }
+        // Optimized responsive grid
+        if (count === 1) return "grid-cols-1"
+        if (count === 2) return "grid-cols-1 sm:grid-cols-2"
+        if (count <= 4) return "grid-cols-2"
+        if (count <= 6) return "grid-cols-2 sm:grid-cols-3"
+        if (count <= 9) return "grid-cols-2 sm:grid-cols-3 md:grid-cols-3"
+        if (count <= 12) return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+        if (count <= 16) return "grid-cols-3 sm:grid-cols-4 md:grid-cols-4"
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
     }
 
     const [currentPage, setCurrentPage] = useState(0)
@@ -663,11 +742,25 @@ export default function WebRTCVideoCall() {
                 >
                     <div className="flex items-center space-x-3 sm:space-x-4">
                         <div className={`w-3 h-3 rounded-full ${getConnectionQualityColor()}`} />
-                        <span className="text-xs sm:text-sm text-gray-300">Room: {roomId}</span>
-                        <Button variant="ghost" size="sm" className="h-6 px-2 text-gray-400 hover:text-gray-50">
+                        <span className="text-xs sm:text-sm text-gray-300">Room: {currentRoomId}</span>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 px-2 text-gray-400 hover:text-gray-50"
+                            onClick={() => {
+                                navigator.clipboard.writeText(currentRoomId)
+                            }}
+                        >
                             <Copy className="w-3 h-3" />
                         </Button>
                         {getNetworkIcon()}
+                        {/* Host indicator */}
+                        {allParticipants.find(p => p.id === localParticipantId)?.isHost && (
+                            <Badge variant="secondary" className="bg-yellow-600/20 text-yellow-300 text-xs">
+                                <Crown className="w-3 h-3 mr-1" />
+                                Host
+                            </Badge>
+                        )}
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -751,12 +844,16 @@ export default function WebRTCVideoCall() {
                         )}
                     </div>
 
-                    <div className="h-full p-4">
-                        <ParticipantGrid
-                            participants={allParticipants}
-                            currentPage={currentPage}
-                            participantsPerPage={participantsPerPage}
-                        />
+                    <div className="h-full p-2 sm:p-4 flex items-center justify-center">
+                        <div className="w-full h-full max-w-7xl mx-auto">
+                            <ParticipantGrid
+                                participants={allParticipants}
+                                currentPage={currentPage}
+                                participantsPerPage={participantsPerPage}
+                                onToggleVideo={toggleVideo}
+                                speakingParticipants={speakingParticipants}
+                            />
+                        </div>
 
                         {/* Pagination Controls */}
                         {hasMultiplePages && (
@@ -870,16 +967,35 @@ export default function WebRTCVideoCall() {
                                 </PopoverContent>
                             </Popover>
 
-                            <Button
-                                variant={isScreenSharing ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => (isScreenSharing ? stopScreenShare() : startScreenShare())}
-                                className="h-10 px-3 sm:px-4 rounded-lg shadow-sm hover:scale-105 transition-transform text-sm"
-                                disabled={!isConnected || !localStream}
-                            >
-                                <Monitor className="w-4 h-4 mr-2" />
-                                <span className="hidden sm:inline">{isScreenSharing ? "Stop Share" : "Share"}</span>
-                            </Button>
+                            <div className="flex items-center space-x-1">
+                                <Button
+                                    variant={isScreenSharing ? "default" : "secondary"}
+                                    size="sm"
+                                    onClick={() => (isScreenSharing ? stopScreenShare() : startScreenShare())}
+                                    className="h-10 px-3 sm:px-4 rounded-lg shadow-sm hover:scale-105 transition-transform text-sm"
+                                    disabled={!isConnected || !localStream}
+                                >
+                                    <Monitor className="w-4 h-4 mr-2" />
+                                    <span className="hidden sm:inline">{isScreenSharing ? "Stop Share" : "Share"}</span>
+                                </Button>
+                                {isScreenSharing && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={toggleFullscreen}
+                                                className="h-10 w-10 rounded-lg shadow-sm hover:scale-105 transition-transform"
+                                            >
+                                                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                )}
+                            </div>
 
                             <Button
                                 variant={isRecording ? "destructive" : "secondary"}
@@ -1046,7 +1162,7 @@ export default function WebRTCVideoCall() {
                     <DialogContent className="w-[95vw] max-w-md h-[85vh] sm:h-[600px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
                         <ChatPanel
                             onClose={() => setShowChat(false)}
-                            onSendMessage={sendMessage}
+                            onSendMessage={sendChatMessage}
                             messages={chatMessages}
                             localParticipantId={localParticipantId}
                             signalingRef={signalingRef}
@@ -1056,7 +1172,37 @@ export default function WebRTCVideoCall() {
 
                 <Dialog open={showParticipants} onOpenChange={setShowParticipants}>
                     <DialogContent className="w-[95vw] max-w-md h-[85vh] sm:h-[600px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
-                        <ParticipantsPanel participants={allParticipants} onClose={() => setShowParticipants(false)} />
+                        <ParticipantsPanel 
+                            participants={allParticipants} 
+                            onClose={() => setShowParticipants(false)}
+                            localParticipantId={localParticipantId}
+                            onMuteParticipant={(participantId, mute) => {
+                                if (signalingRef.current) {
+                                    signalingRef.current.emit('host-mute-participant', { participantId, mute })
+                                }
+                            }}
+                            onToggleParticipantVideo={(participantId, videoOff) => {
+                                if (signalingRef.current) {
+                                    signalingRef.current.emit('host-toggle-video', { participantId, videoOff })
+                                }
+                            }}
+                            onRemoveParticipant={(participantId) => {
+                                if (signalingRef.current) {
+                                    signalingRef.current.emit('host-remove-participant', { participantId })
+                                }
+                            }}
+                            onMakeHost={(participantId) => {
+                                if (signalingRef.current) {
+                                    signalingRef.current.emit('host-transfer', { newHostId: participantId })
+                                }
+                            }}
+                            onRenameParticipant={(participantId, newName) => {
+                                if (signalingRef.current) {
+                                    signalingRef.current.emit('rename-participant', { participantId, newName })
+                                }
+                            }}
+                            roomId={currentRoomId}
+                        />
                     </DialogContent>
                 </Dialog>
 
