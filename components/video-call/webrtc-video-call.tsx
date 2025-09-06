@@ -172,12 +172,29 @@ export default function WebRTCVideoCall() {
         participants.forEach(participant => {
             const videoElement = remoteVideoRefs.current.get(participant.id)
             if (videoElement && participant.stream) {
-                console.log('Setting remote video stream for participant:', participant.id)
-                videoElement.srcObject = participant.stream
-                videoElement.muted = false
-                videoElement.volume = 1
-                videoElement.play().catch(console.error)
-            } else if (videoElement) {
+                console.log('Updating remote video for:', participant.id, {
+                    streamId: participant.stream.id,
+                    videoTracks: participant.stream.getVideoTracks().length,
+                    audioTracks: participant.stream.getAudioTracks().length,
+                    streamActive: participant.stream.active
+                })
+                
+                if (videoElement.srcObject !== participant.stream) {
+                    videoElement.srcObject = participant.stream
+                    videoElement.muted = false
+                    videoElement.volume = 1
+                    videoElement.autoplay = true
+                    videoElement.playsInline = true
+                    
+                    // Force play after setting stream
+                    setTimeout(() => {
+                        videoElement.play().catch(error => {
+                            console.error('Failed to play remote video for', participant.id, error)
+                        })
+                    }, 100)
+                }
+            } else if (videoElement && !participant.stream) {
+                console.log('Clearing video for participant without stream:', participant.id)
                 videoElement.srcObject = null
             }
         })
@@ -538,48 +555,55 @@ export default function WebRTCVideoCall() {
                                                     } else {
                                                         remoteVideoRefs.current.set(participant.id, el)
                                                     }
-                                                    if (el.srcObject !== participant.stream) {
-                                                        el.srcObject = participant.stream
-                                                        // Audio handling: mute local, unmute remote
-                                                        el.muted = participant.isLocal
-                                                        el.volume = participant.isLocal ? 0 : 1
-                                                        
-                                                        // Force play with better error handling
-                                                        const playPromise = el.play()
-                                                        if (playPromise !== undefined) {
-                                                            playPromise.then(() => {
-                                                                console.log(`Video playing for ${participant.isLocal ? 'local' : 'remote'} participant:`, participant.id)
-                                                                if (!participant.isLocal) {
-                                                                    console.log('Remote audio enabled:', !el.muted, 'Volume:', el.volume)
-                                                                }
-                                                            }).catch(error => {
-                                                                console.error('Video play failed:', error)
-                                                                // Try user interaction to enable audio
-                                                                document.addEventListener('click', () => {
-                                                                    el.play().catch(console.error)
-                                                                }, { once: true })
-                                                            })
-                                                        }
-                                                    }
+                                                    
+                                                    // Always set the stream and properties
+                                                    el.srcObject = participant.stream
+                                                    el.muted = participant.isLocal
+                                                    el.volume = participant.isLocal ? 0 : 1
+                                                    el.autoplay = true
+                                                    el.playsInline = true
+                                                    
+                                                    console.log(`Setting video for ${participant.isLocal ? 'local' : 'remote'} participant:`, {
+                                                        id: participant.id,
+                                                        streamId: participant.stream?.id,
+                                                        videoTracks: participant.stream?.getVideoTracks().length,
+                                                        videoEnabled: participant.stream?.getVideoTracks()[0]?.enabled,
+                                                        muted: el.muted,
+                                                        volume: el.volume
+                                                    })
+                                                    
+                                                    // Force play immediately
+                                                    setTimeout(() => {
+                                                        el.play().catch(error => {
+                                                            console.error('Video play failed for', participant.id, error)
+                                                        })
+                                                    }, 100)
                                                 }
                                             }}
                                             className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
                                             autoPlay
                                             playsInline
+                                            muted={participant.isLocal}
                                             controls={false}
                                             onLoadedMetadata={e => {
                                                 const target = e.target as HTMLVideoElement
-                                                console.log('Video metadata loaded for:', participant.id, 'Has audio:', target.srcObject && (target.srcObject as MediaStream).getAudioTracks().length > 0)
+                                                console.log('Video metadata loaded for:', participant.id)
                                                 target.play().catch(console.error)
                                             }}
                                             onCanPlay={e => {
                                                 const target = e.target as HTMLVideoElement
+                                                console.log('Video can play for:', participant.id)
                                                 if (target.paused) {
                                                     target.play().catch(console.error)
                                                 }
                                             }}
+                                            onPlay={() => {
+                                                console.log('Video started playing for:', participant.id)
+                                            }}
+                                            onError={e => {
+                                                console.error('Video error for:', participant.id, e)
+                                            }}
                                             onClick={() => {
-                                                // Force enable audio for remote participants
                                                 if (!participant.isLocal) {
                                                     const videos = document.querySelectorAll('video')
                                                     videos.forEach(video => {
@@ -589,7 +613,6 @@ export default function WebRTCVideoCall() {
                                                             video.play().catch(console.error)
                                                         }
                                                     })
-                                                    console.log('🔊 Audio enabled for all participants')
                                                 }
                                             }}
                                             data-participant={participant.id}
