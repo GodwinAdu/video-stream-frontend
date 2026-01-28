@@ -57,6 +57,7 @@ export interface WebRTCActions {
   toggleRaiseHand: () => void
   sendReaction: (emoji: string) => void
   toggleVirtualBackground: (enable: boolean) => void
+  applyVirtualBackground: (stream: MediaStream | null) => void
   startScreenShare: () => Promise<void>
   stopScreenShare: () => void
   sendMessage: (message: string) => void
@@ -64,7 +65,7 @@ export interface WebRTCActions {
   setBufferedChatMessages: React.Dispatch<React.SetStateAction<any[]>> // Expose setter for buffered messages
 }
 
-export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React.MutableRefObject<Socket | null> } {
+export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React.RefObject<Socket | null> } {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([]) // Stores remote participants
   const [isConnected, setIsConnected] = useState(false)
@@ -79,6 +80,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   const [networkQuality, setNetworkQuality] = useState<"excellent" | "good" | "poor" | "disconnected">("excellent")
   const [bandwidth, setBandwidth] = useState({ upload: 0, download: 0 })
   const [speakingParticipants, setSpeakingParticipants] = useState<Set<string>>(new Set())
+  const [virtualBackgroundStream, setVirtualBackgroundStream] = useState<MediaStream | null>(null)
 
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map()) // participantId -> RTCPeerConnection
   const signalingRef = useRef<Socket | null>(null)
@@ -109,8 +111,8 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
           frameRate: { ideal: 30 },
         },
         audio: {
@@ -266,12 +268,22 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           setParticipants(prev => 
             prev.map(p => p.id === participantId ? { ...p, stream } : p)
           )
+          
+          // Set up audio level detection for remote participant
+          if (event.track.kind === 'audio') {
+            setupRemoteAudioLevelDetection(stream, participantId)
+          }
         } else {
           console.log(`[PC ${participantId}] Creating new stream`)
           const newStream = new MediaStream([event.track])
           setParticipants(prev => 
             prev.map(p => p.id === participantId ? { ...p, stream: newStream } : p)
           )
+          
+          // Set up audio level detection for remote participant
+          if (event.track.kind === 'audio') {
+            setupRemoteAudioLevelDetection(newStream, participantId)
+          }
         }
       }
 
@@ -368,6 +380,9 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         setIsReconnecting(false)
         setError(null)
         
+        // Clear participants list when connecting to prevent duplicates
+        setParticipants([])
+        
         // Join room with timeout
         const joinTimeout = setTimeout(() => {
           setError("Join room timeout. Retrying...")
@@ -428,28 +443,50 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("user-joined", async (participant) => {
-        console.log(`[Socket] User joined: ${participant.name} (${participant.id})`)
-        setParticipants((prev) => [...prev, { ...participant, stream: undefined, status: "online" }])
-
-        // Wait for local stream to be ready
-        if (!stream || stream.getTracks().length === 0) {
-          console.error(`[Socket] No local stream available for ${participant.id}`)
+        console.log(`[Socket] User joined: ${participant.name} (${participant.id}), isHost: ${participant.isHost}`)
+        // Don't add local participant to remote participants list
+        if (participant.id === socket.id) {
+          console.log(`[Socket] Ignoring local participant ${participant.id}`)
           return
         }
         
-        // Create peer connection and offer (existing user creates offer for new user)
-        const peerConnection = createPeerConnection(participant.id, stream)
-        try {
-          console.log(`[Socket] Creating offer for new user ${participant.id}`)
-          const offer = await peerConnection.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true,
-          })
-          await peerConnection.setLocalDescription(offer)
-          socket.emit("offer", { offer, targetId: participant.id })
-          console.log(`[Socket] ✅ Offer sent to new user ${participant.id}`)
-        } catch (e) {
-          console.error(`[Socket] ❌ Offer error:`, e)
+        setParticipants((prev) => {
+          // Check if participant already exists
+          const exists = prev.find(p => p.id === participant.id)
+          if (exists) {
+            console.log(`[Socket] Participant ${participant.id} already exists, updating...`)
+            return prev.map(p => p.id === participant.id ? { 
+              ...participant, 
+              stream: p.stream, 
+              status: "online",
+              isHost: participant.isHost || false 
+            } : p)
+          }
+          return [...prev, { 
+            ...participant, 
+            stream: undefined, 
+            status: "online",
+            isHost: participant.isHost || false 
+          }]
+        })
+
+        // Only create offer if this user has lower socket ID (prevents duplicate offers)
+        if (socket.id < participant.id && stream && stream.getTracks().length > 0) {
+          const peerConnection = createPeerConnection(participant.id, stream)
+          try {
+            const offer = await peerConnection.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: true,
+            })
+            await peerConnection.setLocalDescription(offer)
+            socket.emit("offer", { offer, targetId: participant.id })
+            console.log(`[Socket] ✅ Offer sent to ${participant.id}`)
+          } catch (e) {
+            console.error(`[Socket] ❌ Offer error:`, e)
+          }
+        } else {
+          // Just create peer connection, wait for offer
+          createPeerConnection(participant.id, stream)
         }
       })
 
@@ -461,40 +498,46 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("current-participants", async (currentParticipants) => {
-        console.log("[Socket] Received existing participants:", currentParticipants.length)
-        setParticipants(currentParticipants.map((p: any) => ({ ...p, stream: undefined, status: "online" })))
+        console.log("[Socket] Received existing participants:", currentParticipants.length, currentParticipants)
+        // Filter out local participant and replace participants list completely
+        const remoteParticipants = currentParticipants.filter((p: any) => p.id !== socket.id)
+        setParticipants(remoteParticipants.map((p: any) => ({ 
+          ...p, 
+          stream: undefined, 
+          status: "online",
+          isHost: p.isHost || false // Ensure isHost is preserved
+        })))
 
-        // New user creates offers to existing users
-        for (let i = 0; i < currentParticipants.length; i++) {
-          const participant = currentParticipants[i]
-          setTimeout(async () => {
-            if (stream && stream.getTracks().length > 0) {
-              const peerConnection = createPeerConnection(participant.id, stream)
-              try {
-                const offer = await peerConnection.createOffer({
-                  offerToReceiveAudio: true,
-                  offerToReceiveVideo: true,
-                })
-                await peerConnection.setLocalDescription(offer)
-                socket.emit("offer", { offer, targetId: participant.id })
-                console.log(`[Socket] ✅ Offer sent to existing user ${participant.id}`)
-              } catch (e) {
-                console.error(`[Socket] ❌ Offer error for ${participant.id}:`, e)
-              }
-            }
-          }, i * 200) // 200ms delay between offers
-        }
+        // Create peer connections for existing users (they will send offers)
+        currentParticipants.forEach((participant: any) => {
+          createPeerConnection(participant.id, stream)
+        })
       })
 
-      socket.on("user-left", ({ participantId, userName: leftUserName }) => {
-        console.log(`[Socket] User ${leftUserName} (${participantId}) left.`)
-        setParticipants((prev) => prev.filter((p) => p.id !== participantId))
+      socket.on("user-left", ({ participantId, userName: leftUserName, reason }) => {
+        console.log(`[Socket] User ${leftUserName} (${participantId}) left. Reason: ${reason || 'unknown'}`)
+        
+        // Immediately remove from participants
+        setParticipants((prev) => {
+          const filtered = prev.filter((p) => p.id !== participantId)
+          console.log(`[Socket] Participants after removal: ${filtered.length}`)
+          return filtered
+        })
+        
+        // Close and cleanup peer connection
         const pc = peerConnections.current.get(participantId)
         if (pc) {
           pc.close()
           peerConnections.current.delete(participantId)
-          console.log(`[Socket] Closed peer connection for ${participantId}.`)
+          console.log(`[Socket] Closed peer connection for ${participantId}`)
         }
+        
+        // Remove from speaking participants
+        setSpeakingParticipants((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(participantId)
+          return newSet
+        })
       })
 
       socket.on("offer", async ({ offer, senderId }) => {
@@ -506,7 +549,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           const answer = await peerConnection.createAnswer()
           await peerConnection.setLocalDescription(answer)
           console.log(`[Socket] ✅ Answer created and sent to ${senderId}`)
-          socket.emit("answer", { answer, targetId: senderId, senderId: socket.id })
+          socket.emit("answer", { answer, targetId: senderId, senderId: socket.id || "" })
         } catch (e) {
           console.error(`[Socket] ❌ Answer error:`, e)
         }
@@ -783,6 +826,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     setIsVirtualBackgroundEnabled(false)
     setIsReconnecting(false)
     setBufferedChatMessages([])
+    setSpeakingParticipants(new Set())
 
     console.log("Left room")
   }, []) // IMPORTANT: Empty dependency array makes this callback stable
@@ -795,13 +839,37 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         roomIdRef.current = roomId
         userNameRef.current = userName
 
+        // Check if this is a scheduled meeting
+        try {
+          const response = await fetch(`${SIGNALING_SERVER_URL}/api/meetings/check/${roomId}`)
+          if (response.ok) {
+            const { meeting } = await response.json()
+            if (meeting.status === 'upcoming') {
+              const meetingTime = new Date(meeting.scheduledTime)
+              const timeUntil = Math.ceil((meetingTime.getTime() - Date.now()) / (1000 * 60))
+              throw new Error(`Meeting hasn't started yet. Scheduled for ${meetingTime.toLocaleString()}. Please wait ${timeUntil} minute${timeUntil !== 1 ? 's' : ''}.`)
+            } else if (meeting.status === 'ended') {
+              throw new Error('This meeting has already ended.')
+            }
+          }
+        } catch (err: any) {
+          if (err.message && (err.message.includes('Meeting') || err.message.includes('scheduled') || err.message.includes('ended'))) {
+            setError(err.message)
+            throw err
+          }
+          // If meeting check fails (404), continue - might be instant meeting
+        }
+
         const stream = await initializeLocalStream()
         setupSignaling(roomId, userName, stream)
 
         console.log(`Attempting to join room ${roomId} as ${userName}`)
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to join room:", err)
-        setError("Failed to join room. Check camera/mic permissions or server connection.")
+        if (!err.message?.includes('Meeting')) {
+          setError("Failed to join room. Check camera/mic permissions or server connection.")
+        }
+        throw err
       }
     },
     [initializeLocalStream, setupSignaling],
@@ -861,6 +929,54 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     [localParticipantId],
   )
 
+  // Remote audio level detection
+  const setupRemoteAudioLevelDetection = useCallback(
+    (stream: MediaStream, participantId: string) => {
+      try {
+        const audioTrack = stream.getAudioTracks()[0]
+        if (!audioTrack) return
+
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+        if (!AudioContextClass) return
+
+        const audioContext = new AudioContextClass()
+        const source = audioContext.createMediaStreamSource(stream)
+        const analyser = audioContext.createAnalyser()
+        analyser.fftSize = 256
+        source.connect(analyser)
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount)
+
+        const checkRemoteAudioLevel = () => {
+          if (!analyser) return
+
+          analyser.getByteFrequencyData(dataArray)
+          const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
+
+          const isAudioEnabled = audioTrack?.enabled || false
+          const isSpeaking = average > 30 && isAudioEnabled
+
+          setSpeakingParticipants((prev) => {
+            const newSet = new Set(prev)
+            if (isSpeaking) {
+              newSet.add(participantId)
+            } else {
+              newSet.delete(participantId)
+            }
+            return newSet
+          })
+
+          requestAnimationFrame(checkRemoteAudioLevel)
+        }
+
+        checkRemoteAudioLevel()
+      } catch (error) {
+        console.error(`Failed to setup remote audio level detection for ${participantId}:`, error)
+      }
+    },
+    [],
+  )
+
   // Toggle mute
   const toggleMute = useCallback(() => {
     if (localStream) {
@@ -895,21 +1011,24 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0]
       if (videoTrack) {
-        const newVideoOffState = !videoTrack.enabled
-        videoTrack.enabled = !newVideoOffState
+        videoTrack.enabled = !videoTrack.enabled
+        const isVideoOff = !videoTrack.enabled
 
-        console.log(`Local video toggled: ${videoTrack.enabled ? "on" : "off"}`)
+        console.log(`Local video toggled: ${videoTrack.enabled ? "on" : "off"}, isVideoOff: ${isVideoOff}`)
+
+        // Force stream update to trigger re-render
+        setLocalStream(new MediaStream(localStream.getTracks()))
 
         // Update local participant state immediately
         setParticipants((prev) =>
-          prev.map((p) => (p.id === signalingRef.current?.id ? { ...p, isVideoOff: newVideoOffState } : p)),
+          prev.map((p) => (p.id === signalingRef.current?.id ? { ...p, isVideoOff } : p)),
         )
 
         // Emit to other participants
         if (signalingRef.current && signalingRef.current.connected) {
           signalingRef.current.emit("user-video-toggled", {
             participantId: signalingRef.current.id,
-            isVideoOff: newVideoOffState,
+            isVideoOff,
           })
         }
       } else {
@@ -1005,7 +1124,11 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       const currentAudioEnabled = currentAudioTrack?.enabled || false
 
       const cameraAndMicStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: {
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+          frameRate: { ideal: 30 },
+        },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -1147,6 +1270,23 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     toggleRaiseHand,
     sendReaction,
     toggleVirtualBackground,
+    applyVirtualBackground: (stream: MediaStream | null) => {
+      setVirtualBackgroundStream(stream)
+      setIsVirtualBackgroundEnabled(!!stream)
+      
+      // Update peer connections with new stream
+      if (stream && peerConnections.current.size > 0) {
+        const videoTrack = stream.getVideoTracks()[0]
+        if (videoTrack) {
+          peerConnections.current.forEach((pc) => {
+            const videoSender = pc.getSenders().find((s) => s.track?.kind === "video")
+            if (videoSender) {
+              videoSender.replaceTrack(videoTrack)
+            }
+          })
+        }
+      }
+    },
     startScreenShare,
     stopScreenShare,
     sendMessage,

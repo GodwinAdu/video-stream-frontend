@@ -195,78 +195,83 @@ export default function ParticipantsPanel({
                                     </div>
                                 </div>
 
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-700/50 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200"
-                                        >
-                                            <MoreVertical className="w-4 h-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-48 bg-gray-800 border-gray-700">
-                                        {/* Audio Controls */}
-                                        {isHost && participant.id !== localParticipantId && (
-                                            <>
-                                                <DropdownMenuItem
-                                                    onClick={() => onMuteParticipant?.(participant.id, !participant.isMuted)}
-                                                    className="text-gray-300 hover:bg-gray-700"
-                                                >
-                                                    {participant.isMuted ? <Mic className="w-4 h-4 mr-2" /> : <MicOff className="w-4 h-4 mr-2" />}
-                                                    {participant.isMuted ? 'Unmute' : 'Mute'}
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={() => onToggleParticipantVideo?.(participant.id, !participant.isVideoOff)}
-                                                    className="text-gray-300 hover:bg-gray-700"
-                                                >
-                                                    {participant.isVideoOff ? <Video className="w-4 h-4 mr-2" /> : <VideoOff className="w-4 h-4 mr-2" />}
-                                                    {participant.isVideoOff ? 'Enable Video' : 'Disable Video'}
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator className="bg-gray-700" />
-                                            </>
-                                        )}
-                                        
-                                        {/* Rename */}
-                                        {(isHost || participant.id === localParticipantId) && (
-                                            <DropdownMenuItem
-                                                onClick={() => {
-                                                    setEditingName(participant.id)
-                                                    setNewName(participant.name)
-                                                }}
-                                                className="text-gray-300 hover:bg-gray-700"
+                                {/* Control Menu - Always visible for hosts */}
+                                {(isHost && participant.id !== localParticipantId) || participant.id === localParticipantId ? (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className="h-9 w-9 p-0 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-xl"
                                             >
-                                                <Edit3 className="w-4 h-4 mr-2" />
-                                                Rename
-                                            </DropdownMenuItem>
-                                        )}
-                                        
-                                        {/* Make Host */}
-                                        {isHost && participant.id !== localParticipantId && !participant.isHost && (
-                                            <DropdownMenuItem
-                                                onClick={() => onMakeHost?.(participant.id)}
-                                                className="text-gray-300 hover:bg-gray-700"
-                                            >
-                                                <Crown className="w-4 h-4 mr-2" />
-                                                Make Host
-                                            </DropdownMenuItem>
-                                        )}
-                                        
-                                        {/* Remove Participant */}
-                                        {isHost && participant.id !== localParticipantId && (
-                                            <>
-                                                <DropdownMenuSeparator className="bg-gray-700" />
+                                                <MoreVertical className="w-4 h-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-56 bg-gray-800 border-gray-700">
+                                            {/* Host Controls */}
+                                            {isHost && participant.id !== localParticipantId && (
+                                                <>
+                                                    <DropdownMenuItem
+                                                        onClick={() => onMuteParticipant?.(participant.id, !participant.isMuted)}
+                                                        className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                    >
+                                                        {participant.isMuted ? <Mic className="w-4 h-4 mr-2" /> : <MicOff className="w-4 h-4 mr-2" />}
+                                                        {participant.isMuted ? 'Unmute' : 'Mute'}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onClick={() => onToggleParticipantVideo?.(participant.id, !participant.isVideoOff)}
+                                                        className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                    >
+                                                        {participant.isVideoOff ? <Video className="w-4 h-4 mr-2" /> : <VideoOff className="w-4 h-4 mr-2" />}
+                                                        {participant.isVideoOff ? 'Turn On Video' : 'Turn Off Video'}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator className="bg-gray-700" />
+                                                    <DropdownMenuItem
+                                                        onClick={() => {
+                                                            setEditingName(participant.id)
+                                                            setNewName(participant.name)
+                                                        }}
+                                                        className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                    >
+                                                        <Edit3 className="w-4 h-4 mr-2" />
+                                                        Rename
+                                                    </DropdownMenuItem>
+                                                    {!participant.isHost && (
+                                                        <DropdownMenuItem
+                                                            onClick={() => onMakeHost?.(participant.id)}
+                                                            className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                        >
+                                                            <Crown className="w-4 h-4 mr-2" />
+                                                            Make Host
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    <DropdownMenuSeparator className="bg-gray-700" />
+                                                    <DropdownMenuItem
+                                                        onClick={() => setRemoveDialog(participant.id)}
+                                                        className="text-red-400 hover:bg-red-900/20 cursor-pointer"
+                                                    >
+                                                        <UserX className="w-4 h-4 mr-2" />
+                                                        Remove
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                            
+                                            {/* Self Controls */}
+                                            {participant.id === localParticipantId && (
                                                 <DropdownMenuItem
-                                                    onClick={() => setRemoveDialog(participant.id)}
-                                                    className="text-red-400 hover:bg-red-900/20"
+                                                    onClick={() => {
+                                                        setEditingName(participant.id)
+                                                        setNewName(participant.name)
+                                                    }}
+                                                    className="text-gray-300 hover:bg-gray-700 cursor-pointer"
                                                 >
-                                                    <UserX className="w-4 h-4 mr-2" />
-                                                    Remove from Meeting
+                                                    <Edit3 className="w-4 h-4 mr-2" />
+                                                    Rename
                                                 </DropdownMenuItem>
-                                            </>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                ) : null}
                             </div>
                         ))
                     )}

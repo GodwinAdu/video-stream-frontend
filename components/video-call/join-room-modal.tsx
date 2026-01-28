@@ -8,20 +8,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Video, Mic, MicOff, VideoOff, Settings, Users, Clock, Shield, Loader2, Plus, Copy, Check } from "lucide-react"
+import AuthModal from "../auth/auth-modal"
+import { getAuth } from "@/lib/auth"
 
 interface JoinRoomDialogProps {
   onJoin: (roomId: string, userName: string) => void
+  initialRoomId?: string
 }
 
-export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
-  const [roomId, setRoomId] = useState("")
+export default function JoinRoomDialog({ onJoin, initialRoomId }: JoinRoomDialogProps) {
+  const [roomId, setRoomId] = useState(initialRoomId || "")
   const [userName, setUserName] = useState("")
   const [isMuted, setIsMuted] = useState(false)
   const [isVideoOff, setIsVideoOff] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
+  const [meetingStatus, setMeetingStatus] = useState<{status: string, message?: string} | null>(null)
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null)
   const [copied, setCopied] = useState(false)
+  const [showAuth, setShowAuth] = useState(false)
+  const [authMode, setAuthMode] = useState<"create" | "join">("create")
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [usePersonalRoom, setUsePersonalRoom] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const auth = getAuth()
+    if (auth) {
+      setUserName(auth.user.name)
+      setIsAuthenticated(true)
+      setCurrentUser(auth.user)
+    }
+  }, [])
 
   const generateRoomId = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -30,6 +48,13 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
       result += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     return result
+  }
+
+  const usePersonalMeetingRoom = () => {
+    if (currentUser?.personalRoomId) {
+      setRoomId(currentUser.personalRoomId)
+      setUsePersonalRoom(true)
+    }
   }
 
   const copyRoomId = async () => {
@@ -99,9 +124,35 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
   const handleJoin = async () => {
     if (roomId.trim() && userName.trim()) {
       setIsJoining(true)
+      setMeetingStatus(null)
+      
+      // Check meeting status first
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/meetings/check/${roomId.trim()}`)
+        if (response.ok) {
+          const { meeting } = await response.json()
+          if (meeting.status === 'upcoming') {
+            const meetingTime = new Date(meeting.scheduledTime)
+            const timeUntil = Math.ceil((meetingTime.getTime() - Date.now()) / (1000 * 60))
+            setIsJoining(false)
+            setMeetingStatus({ 
+              status: 'waiting', 
+              message: `Meeting hasn't started yet. Scheduled for ${meetingTime.toLocaleString()}. Please wait ${timeUntil} minute${timeUntil !== 1 ? 's' : ''}.` 
+            })
+            return
+          } else if (meeting.status === 'ended') {
+            setIsJoining(false)
+            setMeetingStatus({ status: 'ended', message: 'This meeting has already ended.' })
+            return
+          }
+        }
+      } catch (err) {
+        // If meeting check fails, continue (might be instant meeting)
+      }
+      
       try {
         await onJoin(roomId.trim(), userName.trim())
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to join:", err)
         setIsJoining(false)
       }
@@ -210,7 +261,7 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
             <CardDescription className="text-gray-400 mt-2">Create a new room or join an existing one</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="create" className="w-full">
+            <Tabs defaultValue={initialRoomId ? "join" : "create"} className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-gray-800/50">
                 <TabsTrigger value="create" className="data-[state=active]:bg-blue-600">Create Room</TabsTrigger>
                 <TabsTrigger value="join" className="data-[state=active]:bg-blue-600">Join Room</TabsTrigger>
@@ -226,22 +277,69 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
                     className="bg-gray-800/50 border-gray-600 text-gray-50 h-12"
                   />
                 </div>
+
+                {/* Personal Meeting Room Option */}
+                {currentUser?.personalRoomId && (
+                  <div className="p-4 bg-blue-600/10 border border-blue-500/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium text-blue-300">Personal Meeting Room</h4>
+                        <p className="text-xs text-blue-400/70">Your permanent meeting room</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={usePersonalMeetingRoom}
+                        className="border-blue-500/50 text-blue-300 hover:bg-blue-600/20"
+                      >
+                        Use PMR
+                      </Button>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <code className="bg-gray-800/50 px-2 py-1 rounded text-blue-300 text-xs">
+                        {currentUser.personalRoomId}
+                      </code>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(currentUser.personalRoomId)
+                          setCopied(true)
+                          setTimeout(() => setCopied(false), 2000)
+                        }}
+                        className="h-6 w-6 p-0 text-blue-400 hover:text-blue-300"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 
                 <Button
                   onClick={() => {
-                    const newRoomId = generateRoomId()
-                    setRoomId(newRoomId)
+                    if (!isAuthenticated) {
+                      setAuthMode("create")
+                      setShowAuth(true)
+                    } else {
+                      const newRoomId = generateRoomId()
+                      setRoomId(newRoomId)
+                      setUsePersonalRoom(false)
+                    }
                   }}
                   variant="outline"
                   className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 h-12"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Generate Room ID
+                  {isAuthenticated ? "Generate New Room ID" : "Sign in to Create Room"}
                 </Button>
                 
                 {roomId && (
                   <div className="bg-gray-800/30 rounded-xl p-4 space-y-3">
-                    <Label className="text-gray-300">Room ID (Share with others)</Label>
+                    <Label className="text-gray-300">
+                      {usePersonalRoom ? 'Personal Meeting Room ID' : 'Room ID (Share with others)'}
+                    </Label>
                     <div className="flex space-x-2">
                       <Input
                         value={roomId}
@@ -257,23 +355,44 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
                         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </Button>
                     </div>
+                    {usePersonalRoom && (
+                      <p className="text-xs text-blue-400">
+                        💡 This is your permanent room - same ID every time you create a meeting
+                      </p>
+                    )}
                   </div>
                 )}
                 
-                <Button
-                  onClick={handleJoin}
-                  disabled={!roomId.trim() || !userName.trim() || isJoining}
-                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 text-lg rounded-xl"
-                >
-                  {isJoining ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create & Join Room"
-                  )}
-                </Button>
+                {meetingStatus?.status === 'waiting' ? (
+                  <div className="bg-yellow-600/20 border border-yellow-500/30 rounded-xl p-4 text-center">
+                    <Clock className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                    <h4 className="font-medium text-yellow-300 mb-2">Meeting Not Started</h4>
+                    <p className="text-sm text-yellow-200">{meetingStatus.message}</p>
+                    <Button
+                      onClick={() => setMeetingStatus(null)}
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 border-yellow-500/50 text-yellow-300 hover:bg-yellow-600/20"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleJoin}
+                    disabled={!roomId.trim() || !userName.trim() || isJoining}
+                    className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 text-lg rounded-xl"
+                  >
+                    {isJoining ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create & Join Room"
+                    )}
+                  </Button>
+                )}
               </TabsContent>
               
               <TabsContent value="join" className="space-y-4 mt-6">
@@ -297,20 +416,36 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
                   />
                 </div>
                 
-                <Button
-                  onClick={handleJoin}
-                  disabled={!roomId.trim() || !userName.trim() || isJoining}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-lg rounded-xl"
-                >
-                  {isJoining ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Joining...
-                    </>
-                  ) : (
-                    "Join Meeting"
-                  )}
-                </Button>
+                {meetingStatus?.status === 'waiting' ? (
+                  <div className="bg-yellow-600/20 border border-yellow-500/30 rounded-xl p-4 text-center">
+                    <Clock className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                    <h4 className="font-medium text-yellow-300 mb-2">Meeting Not Started</h4>
+                    <p className="text-sm text-yellow-200">{meetingStatus.message}</p>
+                    <Button
+                      onClick={() => setMeetingStatus(null)}
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 border-yellow-500/50 text-yellow-300 hover:bg-yellow-600/20"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleJoin}
+                    disabled={!roomId.trim() || !userName.trim() || isJoining}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-lg rounded-xl"
+                  >
+                    {isJoining ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Joining...
+                      </>
+                    ) : (
+                      "Join Meeting"
+                    )}
+                  </Button>
+                )}
               </TabsContent>
             </Tabs>
             
@@ -329,6 +464,26 @@ export default function JoinRoomDialog({ onJoin }: JoinRoomDialogProps) {
           </CardContent>
         </Card>
       </div>
+
+      {showAuth && (
+        <AuthModal
+          mode={authMode}
+          onSuccess={(name) => {
+            setUserName(name)
+            setIsAuthenticated(authMode === "create")
+            setShowAuth(false)
+            // Refresh auth state to get personal room ID
+            const auth = getAuth()
+            if (auth) {
+              setCurrentUser(auth.user)
+            }
+            if (authMode === "create") {
+              const newRoomId = generateRoomId()
+              setRoomId(newRoomId)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

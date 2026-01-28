@@ -34,6 +34,14 @@ import {
     Keyboard,
     ChevronLeft,
     ChevronRight,
+    BarChart3,
+    DoorOpen,
+    Pencil,
+    Upload,
+    PictureInPicture,
+    HelpCircle,
+    Shield,
+    Subtitles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -53,7 +61,21 @@ import PermissionModal from "./permission-modal"
 import AIFeaturesPanel from "./ai-features"
 import MeetingInsightsPanel from "./meeting-insight"
 import KeyboardShortcuts, { KeyboardShortcutsHelp } from "./keyboard-shortcuts"
+import SimplifiedToolbar from "./toolbar-simplified"
 import AudioDebug from "./audio-debug"
+import VirtualBackgroundPanel from "./virtual-background-panel"
+import BreakoutRoomsPanel from "./breakout-rooms-panel"
+import PollsPanel from "./polls-panel"
+import WhiteboardPanel from "./whiteboard-panel"
+import FileSharingPanel from "./file-sharing-panel"
+import QAPanel from "./qa-panel"
+import SecurityPanel from "./security-panel"
+import LiveCaptions from "./live-captions"
+import Dashboard from "../dashboard/dashboard"
+import WaitingRoom from "./waiting-room"
+import { Toaster } from "sonner"
+import { getAuth } from "@/lib/auth"
+import { usePictureInPicture } from "@/hooks/use-picture-in-picture"
 
 interface ChatMessage {
     id: string
@@ -88,47 +110,126 @@ const ParticipantGrid = ({
     participantsPerPage,
     onToggleVideo,
     speakingParticipants,
+    viewMode,
+    pinnedParticipant,
 }: {
     participants: Participant[]
     currentPage: number
     participantsPerPage: number
     onToggleVideo?: () => void
     speakingParticipants: Set<string>
+    viewMode: "gallery" | "speaker" | "focus"
+    pinnedParticipant: string | null
 }) => {
+    // Sort participants: speaking first, then others
+    const sortedParticipants = [...participants].sort((a, b) => {
+        const aIsSpeaking = speakingParticipants.has(a.id)
+        const bIsSpeaking = speakingParticipants.has(b.id)
+        if (aIsSpeaking && !bIsSpeaking) return -1
+        if (!aIsSpeaking && bIsSpeaking) return 1
+        return 0
+    })
+    
     const startIndex = currentPage * participantsPerPage
     const endIndex = startIndex + participantsPerPage
-    const currentParticipants = participants.slice(startIndex, endIndex)
+    const currentParticipants = sortedParticipants.slice(startIndex, endIndex)
     const count = currentParticipants.length
 
-    const getResponsiveGrid = () => {
-        if (count === 1) return "grid-cols-1"
-        if (count === 2) return "grid-cols-1 sm:grid-cols-2"
-        if (count <= 4) return "grid-cols-2"
-        if (count <= 6) return "grid-cols-2 sm:grid-cols-3"
-        if (count <= 9) return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-3"
-        if (count <= 12) return "grid-cols-3 sm:grid-cols-4 lg:grid-cols-4"
-        return "grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+    // Speaker view: show active speaker large with others in sidebar
+    if (viewMode === "speaker") {
+        const activeSpeaker = Array.from(speakingParticipants)[0]
+        const mainParticipant = participants.find(p => p.id === activeSpeaker) || participants[0]
+        const sidebarParticipants = participants.filter(p => p.id !== mainParticipant?.id).slice(0, 4)
+
+        return (
+            <div className="h-full flex gap-2 p-2 md:p-4">
+                {/* Main speaker */}
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="w-full h-full max-w-5xl">
+                        {mainParticipant && (
+                            <ParticipantVideo 
+                                participant={mainParticipant} 
+                                isLarge={true}
+                                onToggleVideo={mainParticipant.isLocal ? onToggleVideo : undefined}
+                                isSpeaking={speakingParticipants.has(mainParticipant.id)}
+                            />
+                        )}
+                    </div>
+                </div>
+                {/* Sidebar */}
+                {sidebarParticipants.length > 0 && (
+                    <div className="w-32 md:w-40 lg:w-48 flex flex-col gap-2 overflow-y-auto">
+                        {sidebarParticipants.map((participant) => (
+                            <div key={participant.id} className="aspect-[4/3]">
+                                <ParticipantVideo 
+                                    participant={participant} 
+                                    isLarge={false}
+                                    onToggleVideo={participant.isLocal ? onToggleVideo : undefined}
+                                    isSpeaking={speakingParticipants.has(participant.id)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        )
     }
 
-    const getAspectRatio = () => {
-        if (count === 1) return "aspect-video"
-        if (count <= 4) return "aspect-video"
-        if (count <= 9) return "aspect-[4/3]"
-        return "aspect-square"
+    // Focus view: show only pinned or local participant
+    if (viewMode === "focus") {
+        const focusParticipant = pinnedParticipant 
+            ? participants.find(p => p.id === pinnedParticipant) 
+            : participants.find(p => p.isLocal) || participants[0]
+
+        return (
+            <div className="h-full flex items-center justify-center p-2 md:p-4">
+                <div className="w-full h-full max-w-6xl">
+                    {focusParticipant && (
+                        <ParticipantVideo 
+                            participant={focusParticipant} 
+                            isLarge={true}
+                            onToggleVideo={focusParticipant.isLocal ? onToggleVideo : undefined}
+                            isSpeaking={speakingParticipants.has(focusParticipant.id)}
+                        />
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // Gallery view: default grid layout
+    const getResponsiveGrid = () => {
+        if (count === 1) return "grid-cols-1"
+        if (count === 2) return "grid-cols-1 md:grid-cols-2"
+        if (count <= 4) return "grid-cols-2 lg:grid-cols-2"
+        if (count <= 6) return "grid-cols-2 md:grid-cols-3"
+        if (count <= 9) return "grid-cols-2 md:grid-cols-3"
+        if (count <= 12) return "grid-cols-3 md:grid-cols-4"
+        if (count <= 16) return "grid-cols-3 md:grid-cols-4 lg:grid-cols-4"
+        if (count <= 25) return "grid-cols-4 md:grid-cols-5"
+        return "grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+    }
+
+    const getContainerClass = () => {
+        if (count === 1) return "max-w-5xl mx-auto"
+        if (count === 2) return "max-w-6xl mx-auto"
+        return "w-full"
     }
 
     return (
-        <div className={`grid gap-1 sm:gap-2 md:gap-3 lg:gap-4 h-full w-full ${getResponsiveGrid()}`}>
-            {currentParticipants.map((participant) => (
-                <div key={participant.id} className={`${getAspectRatio()} min-h-0`}>
-                    <ParticipantVideo 
-                        participant={participant} 
-                        isLarge={count <= 2}
-                        onToggleVideo={participant.isLocal ? onToggleVideo : undefined}
-                        isSpeaking={speakingParticipants.has(participant.id)}
-                    />
-                </div>
-            ))}
+        <div className={`${getContainerClass()} h-full flex items-center justify-center p-2 md:p-4`}>
+            <div className={`grid gap-2 md:gap-3 w-full auto-rows-fr ${getResponsiveGrid()}`}>
+                {currentParticipants.map((participant) => (
+                    <div key={participant.id} className="relative w-full" style={{ aspectRatio: count === 1 ? '16/9' : count <= 4 ? '4/3' : '1/1' }}>
+                        <ParticipantVideo 
+                            participant={participant} 
+                            isLarge={count <= 2}
+                            onToggleVideo={participant.isLocal ? onToggleVideo : undefined}
+                            isSpeaking={speakingParticipants.has(participant.id)}
+                        />
+                    </div>
+                ))}
+            </div>
         </div>
     )
 }
@@ -159,6 +260,7 @@ const ParticipantVideo = ({
             streamActive: participant.stream?.active,
             videoTracks: participant.stream?.getVideoTracks().length || 0,
             audioTracks: participant.stream?.getAudioTracks().length || 0,
+            isVideoOff: participant.isVideoOff,
         })
 
         if (participant.stream && participant.stream.active) {
@@ -206,19 +308,21 @@ const ParticipantVideo = ({
             setIsVideoLoading(false)
             setIsScreenShare(false)
         }
-    }, [participant.stream, participant.id, participant.isLocal])
+    }, [participant.stream, participant.id, participant.isLocal, participant.isVideoOff])
 
     return (
         <div
             className={`relative bg-gray-800 rounded-lg sm:rounded-xl overflow-hidden group transition-all duration-200 w-full h-full ${
-                isSpeaking ? "ring-2 sm:ring-4 ring-green-500 ring-opacity-75 shadow-lg shadow-green-500/25" : ""
+                isSpeaking 
+                    ? "ring-4 sm:ring-[6px] ring-green-400 shadow-2xl shadow-green-400/50 scale-[1.02]" 
+                    : "ring-1 ring-gray-700/50"
             }`}
         >
-            {participant.stream && !participant.isVideoOff && !hasVideoError ? (
+            {participant.stream && participant.stream.active && !participant.isVideoOff && !hasVideoError ? (
                 <>
                     <video
                         ref={videoRef}
-                        className={`w-full h-full object-cover ${participant.isLocal ? "scale-x-[-1]" : ""}`}
+                        className={`w-full h-full ${isScreenShare ? 'object-contain' : 'object-cover'} ${participant.isLocal ? "scale-x-[-1]" : ""}`}
                         autoPlay
                         playsInline
                         muted={participant.isLocal}
@@ -236,19 +340,21 @@ const ParticipantVideo = ({
                     )}
                 </>
             ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800">
-                    <div className="text-center">
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <span className="text-xl font-semibold text-white">
+                <div className="w-full h-full flex items-center justify-center bg-[#202124]">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                        {/* Google Meet style avatar */}
+                        <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 bg-[#5f6368] rounded-full flex items-center justify-center">
+                            <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium text-white">
                                 {participant.name
                                     .split(" ")
                                     .map((n) => n[0])
                                     .join("")}
                             </span>
                         </div>
-                        <p className="text-white font-medium">{participant.name}</p>
-                        <p className="text-gray-300 text-sm">
-                            {participant.isVideoOff ? "Camera off" : hasVideoError ? "Video error" : "Connecting..."}
+                        
+                        {/* Name */}
+                        <p className="text-white font-normal text-sm sm:text-base md:text-lg text-center px-4 max-w-full truncate">
+                            {participant.name}
                         </p>
                     </div>
                 </div>
@@ -305,12 +411,12 @@ const ParticipantVideo = ({
                 )}
             </div>
 
-            {/* Speaking indicator */}
+            {/* Speaking indicator - More prominent */}
             {isSpeaking && (
-                <div className="absolute top-1 sm:top-2 left-1 sm:left-2">
-                    <div className="flex items-center space-x-1 bg-green-500/90 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1">
-                        <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white rounded-full animate-pulse" />
-                        <span className="text-white text-xs font-medium hidden sm:inline">Speaking</span>
+                <div className="absolute top-2 sm:top-3 left-2 sm:left-3 z-20">
+                    <div className="flex items-center space-x-1.5 bg-green-500 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 shadow-lg animate-pulse">
+                        <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+                        <span className="text-white text-xs sm:text-sm font-semibold">Speaking</span>
                     </div>
                 </div>
             )}
@@ -360,9 +466,9 @@ export default function WebRTCVideoCall() {
         toggleRaiseHand,
         sendReaction,
         toggleVirtualBackground,
+        applyVirtualBackground,
         startScreenShare,
         stopScreenShare,
-        // sendMessage, // Remove from destructuring
         getParticipantById,
         signalingRef,
         setBufferedChatMessages,
@@ -378,6 +484,14 @@ export default function WebRTCVideoCall() {
     const [showSettings, setShowSettings] = useState(false)
     const [showAIFeatures, setShowAIFeatures] = useState(false)
     const [showMeetingInsights, setShowMeetingInsights] = useState(false)
+    const [showVirtualBackground, setShowVirtualBackground] = useState(false)
+    const [showBreakoutRooms, setShowBreakoutRooms] = useState(false)
+    const [showPolls, setShowPolls] = useState(false)
+    const [showWhiteboard, setShowWhiteboard] = useState(false)
+    const [showFileSharing, setShowFileSharing] = useState(false)
+    const [showQA, setShowQA] = useState(false)
+    const [showSecurity, setShowSecurity] = useState(false)
+    const [showCaptions, setShowCaptions] = useState(false)
     const [recordingTime, setRecordingTime] = useState(0)
     const [aiTranscription, setAiTranscription] = useState(true)
     const [noiseReduction, setNoiseReduction] = useState(true)
@@ -403,16 +517,53 @@ export default function WebRTCVideoCall() {
     const [meetingSummary, setMeetingSummary] = useState<string | null>(null)
     const [actionItems, setActionItems] = useState<string[]>([])
     const [isGeneratingInsights, setIsGeneratingInsights] = useState(false)
+    const [unreadMessages, setUnreadMessages] = useState(0)
+    const [lastReadMessageId, setLastReadMessageId] = useState<string | null>(null)
+    const [processedStream, setProcessedStream] = useState<MediaStream | null>(null)
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const localVideoRef = useRef<HTMLVideoElement>(null)
     const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
     const toolbarTimeoutRef = useRef<NodeJS.Timeout>()
 
+    // Picture-in-Picture
+    const { isPiPActive, isPiPSupported, togglePiP } = usePictureInPicture(localVideoRef.current)
+
     const [currentRoomId, setCurrentRoomId] = useState<string>("")
+    const [showDashboard, setShowDashboard] = useState(false)
+    const [isInWaitingRoom, setIsInWaitingRoom] = useState(false)
+    const [hostName, setHostName] = useState("")
+
+    // Check URL parameters and authentication - only on mount
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search)
+        const roomParam = urlParams.get('room')
+        
+        if (roomParam) {
+            // Direct room join from URL
+            setCurrentRoomId(roomParam)
+            setShowJoinDialog(true)
+            setShowDashboard(false)
+        } else {
+            // Check if user is authenticated and should see dashboard
+            const auth = getAuth()
+            if (auth) {
+                setShowDashboard(true)
+            }
+        }
+    }, [])
 
     // Keyboard shortcuts handlers
-    const handleToggleChat = () => setShowChat(!showChat)
+    const handleToggleChat = () => {
+        setShowChat(!showChat)
+        if (!showChat) {
+            // Mark messages as read when opening chat
+            setUnreadMessages(0)
+            if (chatMessages.length > 0) {
+                setLastReadMessageId(chatMessages[chatMessages.length - 1].id)
+            }
+        }
+    }
     const handleToggleParticipants = () => setShowParticipants(!showParticipants)
 
     // Enhanced message handling
@@ -444,20 +595,34 @@ export default function WebRTCVideoCall() {
         (message: { message: string; senderId: string; userName: string; timestamp: string }) => {
             // Only add if not from local user (to avoid duplicates)
             if (message.senderId !== localParticipantId) {
-                setChatMessages((prev) => [
-                    ...prev,
-                    {
-                        id: `${message.senderId}-${Date.now()}`,
-                        senderId: message.senderId,
-                        userName: message.userName,
-                        content: message.message,
-                        timestamp: new Date(message.timestamp).toLocaleTimeString(),
-                        type: "text",
-                    },
-                ])
+                const newMessage = {
+                    id: `${message.senderId}-${Date.now()}`,
+                    senderId: message.senderId,
+                    userName: message.userName,
+                    content: message.message,
+                    timestamp: new Date(message.timestamp).toLocaleTimeString(),
+                    type: "text" as const,
+                }
+                
+                setChatMessages((prev) => [...prev, newMessage])
+                
+                // Show notification if chat is closed
+                if (!showChat) {
+                    setUnreadMessages(prev => prev + 1)
+                    // Show toast notification
+                    import('sonner').then(({ toast }) => {
+                        toast.info(`${message.userName}: ${message.message}`, {
+                            duration: 4000,
+                            action: {
+                                label: 'Open Chat',
+                                onClick: () => setShowChat(true)
+                            }
+                        })
+                    })
+                }
             }
         },
-        [localParticipantId],
+        [localParticipantId, showChat],
     )
 
     // Auto-hide toolbar
@@ -499,9 +664,16 @@ export default function WebRTCVideoCall() {
                 type: "text",
             }))
             setChatMessages((prev) => [...prev, ...newBufferedMessages])
+            
+            // Count unread buffered messages if chat is closed
+            if (!showChat) {
+                const unreadBuffered = newBufferedMessages.filter(msg => msg.senderId !== localParticipantId)
+                setUnreadMessages(prev => prev + unreadBuffered.length)
+            }
+            
             setBufferedChatMessages([])
         }
-    }, [bufferedChatMessages, setBufferedChatMessages])
+    }, [bufferedChatMessages, setBufferedChatMessages, showChat, localParticipantId])
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -533,34 +705,74 @@ export default function WebRTCVideoCall() {
     }, [isRecording])
 
     // Enhanced handlers
-    const handleRecordToggle = useCallback(() => {
-        if (!localStream) return
-
+    const handleRecordToggle = useCallback(async () => {
         if (isRecording) {
             mediaRecorderRef.current?.stop()
             setIsRecording(false)
             setRecordingTime(0)
         } else {
-            const combinedStream = new MediaStream()
-            localStream.getTracks().forEach((track) => combinedStream.addTrack(track))
-            participants.forEach((p) => {
-                if (p.stream) p.stream.getTracks().forEach((track) => combinedStream.addTrack(track))
-            })
-
             try {
-                const recorder = new MediaRecorder(combinedStream, { mimeType: "video/webm; codecs=vp8,opus" })
+                // Capture the entire screen/window to record the meeting interface
+                const displayStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: true // Capture system audio
+                })
+
+                // Also capture microphone audio to include local voice
+                let micStream: MediaStream | null = null
+                try {
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                } catch (micErr) {
+                    console.warn("Could not capture microphone for recording:", micErr)
+                }
+
+                // Combine display and microphone audio if available
+                const combinedStream = new MediaStream()
+                displayStream.getVideoTracks().forEach(track => combinedStream.addTrack(track))
+                displayStream.getAudioTracks().forEach(track => combinedStream.addTrack(track))
+                if (micStream) {
+                    micStream.getAudioTracks().forEach(track => combinedStream.addTrack(track))
+                }
+
+                const recorder = new MediaRecorder(combinedStream, { 
+                    mimeType: "video/webm; codecs=vp8,opus" 
+                })
                 mediaRecorderRef.current = recorder
                 setRecordedChunks([])
+                
                 recorder.ondataavailable = (event) => {
                     if (event.data.size > 0) setRecordedChunks((prev) => [...prev, event.data])
                 }
+                
+                recorder.onstop = () => {
+                    displayStream.getTracks().forEach(track => track.stop())
+                    if (micStream) {
+                        micStream.getTracks().forEach(track => track.stop())
+                    }
+                }
+                
+                // Stop recording if user stops screen sharing
+                displayStream.getVideoTracks()[0].onended = () => {
+                    if (isRecording) {
+                        recorder.stop()
+                        setIsRecording(false)
+                        setRecordingTime(0)
+                    }
+                }
+                
                 recorder.start()
                 setIsRecording(true)
+                console.log("Started recording entire meeting screen")
             } catch (err) {
-                console.error("Recording failed:", err)
+                console.error("Screen recording failed:", err)
+                alert("Screen recording failed. Please make sure to select the browser window/tab containing the meeting when prompted.")
             }
         }
-    }, [localStream, participants, isRecording])
+    }, [isRecording])
 
     const handleDownloadRecording = useCallback(() => {
         if (recordedChunks.length === 0) return
@@ -628,6 +840,8 @@ export default function WebRTCVideoCall() {
             setCurrentRoomId(roomId)
             await joinRoom(roomId, userName)
             setShowJoinDialog(false)
+            // Update URL without page reload
+            window.history.replaceState({}, '', `${window.location.pathname}?room=${roomId}`)
         } catch (err) {
             console.error("Failed to join room:", err)
         }
@@ -670,13 +884,29 @@ export default function WebRTCVideoCall() {
         }
     }, [localStream])
 
+    // Cleanup effect for connection state changes
+    useEffect(() => {
+        if (!isConnected && participants.length > 0) {
+            console.log('Connection lost, clearing stale participants')
+            // Force clear participants when disconnected
+            setTimeout(() => {
+                if (!isConnected) {
+                    console.log('Force clearing participants after disconnect')
+                }
+            }, 2000)
+        }
+    }, [isConnected, participants.length])
+
     // Include local participant in the list
+    // Check if local user is host: they're host if participants array is empty (first to join)
+    const isLocalHost = participants.length === 0 || participants.find(p => p.id === localParticipantId)?.isHost || false
+    
     const localParticipant = localParticipantId
         ? {
             id: localParticipantId,
             name: "You",
             isLocal: true,
-            isHost: true,
+            isHost: isLocalHost,
             stream: localStream,
             isMuted,
             isVideoOff,
@@ -687,29 +917,36 @@ export default function WebRTCVideoCall() {
         }
         : null
 
+    // Filter out duplicates and ensure no stale participants
+    const uniqueParticipants = participants
+        .filter(p => p.id !== localParticipantId) // Remove local from remote list
+        .filter((p, index, arr) => arr.findIndex(x => x.id === p.id) === index) // Remove duplicates
+        .map((p) => ({ ...p, isLocal: false }))
+
     const allParticipants = [
         ...(localParticipant ? [localParticipant] : []),
-        ...participants.map((p) => ({ ...p, isLocal: false })),
+        ...uniqueParticipants,
     ]
 
-    const getGridLayout = (count: number) => {
-        if (viewMode === "speaker" && pinnedParticipant) {
-            return "grid-cols-1"
-        }
+    // Debug logging
+    useEffect(() => {
+        console.log('Participants state:', {
+            localParticipantId,
+            remoteParticipants: participants.length,
+            totalParticipants: allParticipants.length,
+            participantIds: allParticipants.map(p => ({ id: p.id, name: p.name }))
+        })
+    }, [participants, localParticipantId, allParticipants.length])
 
-        // Optimized responsive grid
-        if (count === 1) return "grid-cols-1"
-        if (count === 2) return "grid-cols-1 sm:grid-cols-2"
-        if (count <= 4) return "grid-cols-2"
-        if (count <= 6) return "grid-cols-2 sm:grid-cols-3"
-        if (count <= 9) return "grid-cols-2 sm:grid-cols-3 md:grid-cols-3"
-        if (count <= 12) return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-        if (count <= 16) return "grid-cols-3 sm:grid-cols-4 md:grid-cols-4"
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
-    }
+    // Force re-render when participants change
+    useEffect(() => {
+        console.log('Participants updated:', allParticipants.map(p => `${p.name} (${p.id})`).join(', '))
+    }, [allParticipants])
+
+
 
     const [currentPage, setCurrentPage] = useState(0)
-    const participantsPerPage = 12 // Show 12 participants per page
+    const participantsPerPage = 16 // Show 16 participants per page
 
     const totalPages = Math.ceil(allParticipants.length / participantsPerPage)
     const hasMultiplePages = totalPages > 1
@@ -725,8 +962,38 @@ export default function WebRTCVideoCall() {
         )
     }
 
+    if (showDashboard) {
+        return (
+            <Dashboard 
+                onStartMeeting={(roomId, userName) => {
+                    setShowDashboard(false)
+                    handleJoinRoom(roomId, userName)
+                }}
+                onJoinMeeting={() => {
+                    setShowDashboard(false)
+                    setShowJoinDialog(true)
+                }}
+            />
+        )
+    }
+
+    if (isInWaitingRoom) {
+        return (
+            <WaitingRoom
+                roomId={currentRoomId}
+                userName={"You"}
+                hostName={hostName}
+                onAdmit={() => setIsInWaitingRoom(false)}
+                onReject={() => {
+                    setIsInWaitingRoom(false)
+                    setShowDashboard(true)
+                }}
+            />
+        )
+    }
+
     if (showJoinDialog) {
-        return <JoinRoomDialog onJoin={handleJoinRoom} />
+        return <JoinRoomDialog onJoin={handleJoinRoom} initialRoomId={currentRoomId} />
     }
 
     return (
@@ -845,295 +1112,95 @@ export default function WebRTCVideoCall() {
                     </div>
 
                     <div className="h-full p-2 sm:p-4 flex items-center justify-center">
-                        <div className="w-full h-full max-w-7xl mx-auto">
-                            <ParticipantGrid
-                                participants={allParticipants}
-                                currentPage={currentPage}
-                                participantsPerPage={participantsPerPage}
-                                onToggleVideo={toggleVideo}
-                                speakingParticipants={speakingParticipants}
-                            />
-                        </div>
+                        <ParticipantGrid
+                            participants={allParticipants}
+                            currentPage={currentPage}
+                            participantsPerPage={participantsPerPage}
+                            onToggleVideo={toggleVideo}
+                            speakingParticipants={speakingParticipants}
+                            viewMode={viewMode}
+                            pinnedParticipant={pinnedParticipant}
+                        />
 
-                        {/* Pagination Controls */}
-                        {hasMultiplePages && (
-                            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 bg-black/50 rounded-lg px-4 py-2">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                                    disabled={currentPage === 0}
-                                    className="text-white hover:bg-white/20"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </Button>
-                                <span className="text-white text-sm">
-                                    {currentPage + 1} of {totalPages}
-                                </span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-                                    disabled={currentPage === totalPages - 1}
-                                    className="text-white hover:bg-white/20"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        )}
+                    {/* Pagination Controls */}
+                    {hasMultiplePages && (
+                        <div className="absolute bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 z-20">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                                disabled={currentPage === 0}
+                                className="text-white hover:bg-white/20"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <span className="text-white text-sm">
+                                {currentPage + 1} / {totalPages}
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
+                                disabled={currentPage === totalPages - 1}
+                                className="text-white hover:bg-white/20"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </Button>
+                        </div>
+                    )}
                     </div>
                 </div>
 
-                {/* Enhanced Bottom Toolbar */}
+                {/* Simplified Bottom Toolbar - Google Meet Style */}
                 <div
                     className={`p-3 sm:p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 transition-transform duration-300 ${showToolbar ? "translate-y-0" : "translate-y-full"}`}
                 >
-                    <div className="flex items-center justify-between max-w-7xl mx-auto">
-                        {/* Left Controls */}
-                        <div className="flex items-center space-x-2">
-                            <div className="flex items-center space-x-1 bg-gray-800/60 rounded-xl p-1 shadow-lg">
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant={isMuted ? "destructive" : "secondary"}
-                                            size="sm"
-                                            onClick={toggleMute}
-                                            className="h-10 w-10 rounded-lg shadow-sm hover:scale-105 transition-transform"
-                                            disabled={!localStream}
-                                        >
-                                            {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{isMuted ? "Unmute" : "Mute"} microphone</p>
-                                    </TooltipContent>
-                                </Tooltip>
-
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant={isVideoOff ? "destructive" : "secondary"}
-                                            size="sm"
-                                            onClick={toggleVideo}
-                                            className="h-10 w-10 rounded-lg shadow-sm hover:scale-105 transition-transform"
-                                            disabled={!localStream}
-                                        >
-                                            {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{isVideoOff ? "Turn on" : "Turn off"} camera</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-
-                            <Separator orientation="vertical" className="h-8 bg-gray-700" />
-
-                            {/* Audio Controls */}
-                            <Popover>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="secondary" size="sm" className="h-10 w-10 rounded-lg shadow-sm">
-                                                {isSpeakerMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                                            </Button>
-                                        </PopoverTrigger>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Audio settings</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                                <PopoverContent className="w-64 p-4 bg-gray-900 border-gray-700">
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-300">Speaker Volume</label>
-                                            <div className="flex items-center space-x-2 mt-2">
-                                                <VolumeX className="w-4 h-4 text-gray-400" />
-                                                <Slider
-                                                    value={[volume]}
-                                                    onValueChange={([value]) => setVolume(value)}
-                                                    max={100}
-                                                    step={1}
-                                                    className="flex-1"
-                                                />
-                                                <Volume2 className="w-4 h-4 text-gray-400" />
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-sm font-medium text-gray-300">Mute Speaker</label>
-                                            <Switch checked={isSpeakerMuted} onCheckedChange={toggleSpeaker} />
-                                        </div>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-
-                            <div className="flex items-center space-x-1">
-                                <Button
-                                    variant={isScreenSharing ? "default" : "secondary"}
-                                    size="sm"
-                                    onClick={() => (isScreenSharing ? stopScreenShare() : startScreenShare())}
-                                    className="h-10 px-3 sm:px-4 rounded-lg shadow-sm hover:scale-105 transition-transform text-sm"
-                                    disabled={!isConnected || !localStream}
-                                >
-                                    <Monitor className="w-4 h-4 mr-2" />
-                                    <span className="hidden sm:inline">{isScreenSharing ? "Stop Share" : "Share"}</span>
-                                </Button>
-                                {isScreenSharing && (
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                onClick={toggleFullscreen}
-                                                className="h-10 w-10 rounded-lg shadow-sm hover:scale-105 transition-transform"
-                                            >
-                                                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                )}
-                            </div>
-
-                            <Button
-                                variant={isRecording ? "destructive" : "secondary"}
-                                size="sm"
-                                onClick={handleRecordToggle}
-                                className="h-10 px-3 sm:px-4 rounded-lg shadow-sm hover:scale-105 transition-transform text-sm"
-                                disabled={!isConnected || !localStream}
-                            >
-                                <Record className="w-4 h-4 mr-2" />
-                                <span className="hidden sm:inline">{isRecording ? "Stop" : "Record"}</span>
-                            </Button>
-
-                            {recordedChunks.length > 0 && !isRecording && (
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={handleDownloadRecording}
-                                    className="h-10 px-3 rounded-lg shadow-sm"
-                                >
-                                    <Download className="w-4 h-4 mr-2" />
-                                    <span className="hidden sm:inline">Download</span>
-                                </Button>
-                            )}
-                        </div>
-
-                        {/* Center Controls */}
-                        <div className="flex items-center space-x-2">
-                            <Button
-                                variant={
-                                    allParticipants.find((p) => p.id === localParticipantId)?.isRaiseHand ? "default" : "secondary"
-                                }
-                                size="sm"
-                                onClick={toggleRaiseHand}
-                                className="h-10 w-10 rounded-lg shadow-sm"
-                                disabled={!isConnected}
-                            >
-                                <Hand className="w-4 h-4" />
-                            </Button>
-
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        className="h-10 w-10 rounded-lg shadow-sm"
-                                        disabled={!isConnected}
-                                    >
-                                        <Smile className="w-4 h-4" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-2 bg-gray-900 border-gray-800 rounded-xl shadow-xl">
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {["👋", "👍", "❤️", "😂", "🎉", "👏", "🔥", "💯"].map((emoji) => (
-                                            <Button
-                                                key={emoji}
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-2xl hover:bg-gray-800 rounded-lg"
-                                                onClick={() => sendReaction(emoji)}
-                                            >
-                                                {emoji}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-
-                            <Button
-                                variant={showAIFeatures ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => setShowAIFeatures(!showAIFeatures)}
-                                className="h-10 px-3 sm:px-4 rounded-lg shadow-sm"
-                            >
-                                <Sparkles className="w-4 h-4 mr-2" />
-                                <span className="hidden sm:inline">AI</span>
-                            </Button>
-                        </div>
-
-                        {/* Right Controls */}
-                        <div className="flex items-center space-x-2">
-                            <Button
-                                variant={showChat ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => setShowChat(!showChat)}
-                                className="h-10 w-10 relative rounded-lg shadow-sm"
-                            >
-                                <MessageSquare className="w-4 h-4" />
-                            </Button>
-
-                            <Button
-                                variant={showParticipants ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => setShowParticipants(!showParticipants)}
-                                className="h-10 w-10 rounded-lg shadow-sm"
-                            >
-                                <Users className="w-4 h-4" />
-                            </Button>
-
-                            <Button
-                                variant={showSettings ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => setShowSettings(!showSettings)}
-                                className="h-10 w-10 rounded-lg shadow-sm"
-                            >
-                                <Settings className="w-4 h-4" />
-                            </Button>
-
-                            <Button
-                                variant={showMeetingInsights ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => setShowMeetingInsights(!showMeetingInsights)}
-                                className="h-10 w-10 rounded-lg shadow-sm"
-                            >
-                                <Lightbulb className="w-4 h-4" />
-                            </Button>
-
-                            <Button
-                                variant={showKeyboardHelp ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => setShowKeyboardHelp(!showKeyboardHelp)}
-                                className="h-10 w-10 rounded-lg shadow-sm"
-                            >
-                                <Keyboard className="w-4 h-4" />
-                            </Button>
-
-                            <Separator orientation="vertical" className="h-8 bg-gray-700" />
-
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                className="h-10 px-3 sm:px-4 rounded-lg shadow-sm"
-                                onClick={handleLeaveCall}
-                            >
-                                <Phone className="w-4 h-4 mr-2" />
-                                <span className="hidden sm:inline">Leave</span>
-                            </Button>
-                        </div>
-                    </div>
+                    <SimplifiedToolbar
+                        isMuted={isMuted}
+                        isVideoOff={isVideoOff}
+                        isScreenSharing={isScreenSharing}
+                        isConnected={isConnected}
+                        isRecording={isRecording}
+                        showChat={showChat}
+                        showParticipants={showParticipants}
+                        unreadMessages={unreadMessages}
+                        participantsCount={allParticipants.length}
+                        isHost={allParticipants.find(p => p.id === localParticipantId)?.isHost || false}
+                        isPiPSupported={isPiPSupported}
+                        isPiPActive={isPiPActive}
+                        showCaptions={showCaptions}
+                        recordedChunks={recordedChunks}
+                        localStream={localStream}
+                        onToggleMute={toggleMute}
+                        onToggleVideo={toggleVideo}
+                        onToggleScreenShare={() => (isScreenSharing ? stopScreenShare() : startScreenShare())}
+                        onToggleChat={handleToggleChat}
+                        onToggleParticipants={() => setShowParticipants(!showParticipants)}
+                        onLeaveCall={handleLeaveCall}
+                        onSendReaction={sendReaction}
+                        onToggleRaiseHand={toggleRaiseHand}
+                        onShowActivities={(activity) => {
+                            switch(activity) {
+                                case 'whiteboard': setShowWhiteboard(true); break;
+                                case 'polls': setShowPolls(true); break;
+                                case 'qa': setShowQA(true); break;
+                                case 'breakout': setShowBreakoutRooms(true); break;
+                                case 'files': setShowFileSharing(true); break;
+                                case 'ai': setShowAIFeatures(true); break;
+                                case 'insights': setShowMeetingInsights(true); break;
+                                case 'security': setShowSecurity(true); break;
+                                case 'background': setShowVirtualBackground(true); break;
+                                case 'keyboard': setShowKeyboardHelp(true); break;
+                            }
+                        }}
+                        onShowSettings={() => setShowSettings(true)}
+                        onTogglePiP={togglePiP}
+                        onToggleCaptions={() => setShowCaptions(!showCaptions)}
+                        onRecordToggle={handleRecordToggle}
+                        onDownloadRecording={handleDownloadRecording}
+                        onToggleFullscreen={toggleFullscreen}
+                        isFullscreen={isFullscreen}
+                    />
                 </div>
 
                 {/* Audio Debug Panel */}
@@ -1149,6 +1216,7 @@ export default function WebRTCVideoCall() {
                     onToggleParticipants={handleToggleParticipants}
                     onLeaveCall={handleLeaveCall}
                     onToggleFullscreen={toggleFullscreen}
+                    localStream={localStream}
                 />
 
                 {/* Modern Responsive Dialogs */}
@@ -1166,6 +1234,10 @@ export default function WebRTCVideoCall() {
                             messages={chatMessages}
                             localParticipantId={localParticipantId}
                             signalingRef={signalingRef}
+                            participants={allParticipants}
+                            speakingParticipants={speakingParticipants}
+                            onToggleMute={toggleMute}
+                            onToggleVideo={toggleVideo}
                         />
                     </DialogContent>
                 </Dialog>
@@ -1226,8 +1298,17 @@ export default function WebRTCVideoCall() {
                             setAiTranscription={setAiTranscription}
                             virtualBackgroundsEnabled={isVirtualBackgroundEnabled}
                             setVirtualBackgroundsEnabled={toggleVirtualBackground}
-                            onGenerateMeetingInsights={() => { }}
+                            onGenerateMeetingInsights={() => {
+                                setIsGeneratingInsights(true)
+                                setTimeout(() => {
+                                    setMeetingSummary("AI-generated meeting summary with key points and decisions made during the call.")
+                                    setActionItems(["Follow up on project timeline", "Schedule next meeting", "Review documentation"])
+                                    setIsGeneratingInsights(false)
+                                    setShowMeetingInsights(true)
+                                }, 3000)
+                            }}
                             isGeneratingInsights={isGeneratingInsights}
+                            localStream={localStream}
                         />
                     </DialogContent>
                 </Dialog>
@@ -1239,9 +1320,113 @@ export default function WebRTCVideoCall() {
                             summary={meetingSummary}
                             actionItems={actionItems}
                             isLoading={isGeneratingInsights}
+                            chatMessages={chatMessages}
+                            participants={allParticipants}
                         />
                     </DialogContent>
                 </Dialog>
+
+                <Dialog open={showVirtualBackground} onOpenChange={setShowVirtualBackground}>
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                        <VirtualBackgroundPanel
+                            onClose={() => setShowVirtualBackground(false)}
+                            localStream={localStream}
+                            onBackgroundChange={(stream) => {
+                                applyVirtualBackground(stream)
+                            }}
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={showBreakoutRooms} onOpenChange={setShowBreakoutRooms}>
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                        <BreakoutRoomsPanel
+                            onClose={() => setShowBreakoutRooms(false)}
+                            participants={allParticipants}
+                            localParticipantId={localParticipantId}
+                            isHost={allParticipants.find(p => p.id === localParticipantId)?.isHost || false}
+                            signalingRef={signalingRef}
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={showPolls} onOpenChange={setShowPolls}>
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                        <PollsPanel
+                            onClose={() => setShowPolls(false)}
+                            localParticipantId={localParticipantId}
+                            isHost={allParticipants.find(p => p.id === localParticipantId)?.isHost || false}
+                            signalingRef={signalingRef}
+                            participants={allParticipants}
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={showWhiteboard} onOpenChange={setShowWhiteboard}>
+                    <DialogContent className="w-[95vw] max-w-4xl h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                        <WhiteboardPanel
+                            onClose={() => setShowWhiteboard(false)}
+                            signalingRef={signalingRef}
+                            localParticipantId={localParticipantId}
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={showFileSharing} onOpenChange={setShowFileSharing}>
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                        <FileSharingPanel
+                            onClose={() => setShowFileSharing(false)}
+                            signalingRef={signalingRef}
+                            localParticipantId={localParticipantId}
+                            participants={allParticipants}
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={showQA} onOpenChange={setShowQA}>
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                        <QAPanel
+                            onClose={() => setShowQA(false)}
+                            signalingRef={signalingRef}
+                            localParticipantId={localParticipantId}
+                            isHost={allParticipants.find(p => p.id === localParticipantId)?.isHost || false}
+                            participants={allParticipants}
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={showSecurity} onOpenChange={setShowSecurity}>
+                    <DialogContent className="w-[95vw] max-w-md h-auto mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                        <SecurityPanel
+                            onClose={() => setShowSecurity(false)}
+                            signalingRef={signalingRef}
+                            isHost={allParticipants.find(p => p.id === localParticipantId)?.isHost || false}
+                            roomId={currentRoomId}
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                {/* Live Captions Overlay */}
+                <LiveCaptions
+                    isEnabled={showCaptions}
+                    onToggle={() => setShowCaptions(false)}
+                    localParticipantName={allParticipants.find(p => p.id === localParticipantId)?.name || "You"}
+                />
+                
+                {/* Toast Notifications */}
+                <Toaster 
+                    position="top-right" 
+                    richColors 
+                    closeButton
+                    theme="dark"
+                    toastOptions={{
+                        style: {
+                            background: 'rgb(31 41 55)',
+                            border: '1px solid rgb(75 85 99)',
+                            color: 'rgb(243 244 246)'
+                        }
+                    }}
+                />
             </div>
         </TooltipProvider>
     )

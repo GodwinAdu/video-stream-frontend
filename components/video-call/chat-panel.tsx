@@ -3,13 +3,13 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { X, Send, Smile, Paperclip, MessageSquare } from "lucide-react"
+import { X, Send, Smile, Paperclip, MessageSquare, Mic, MicOff, Video, VideoOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
 import type { Socket } from "socket.io-client"
-// import { useWebRTC } from "@/hooks/use-webrtc" // Import useWebRTC to access socket for chat messages
 
 interface ChatMessage {
   id: string
@@ -20,12 +20,23 @@ interface ChatMessage {
   type: "text" | "system"
 }
 
+interface Participant {
+  id: string
+  name: string
+  isMuted: boolean
+  isVideoOff: boolean
+}
+
 interface ChatPanelProps {
   onClose: () => void
   onSendMessage: (message: string) => void
   messages: ChatMessage[]
   localParticipantId: string | null
-  signalingRef: React.MutableRefObject<Socket | null> // Add this prop
+  signalingRef: React.MutableRefObject<Socket | null>
+  participants?: Participant[]
+  speakingParticipants?: Set<string>
+  onToggleMute?: () => void
+  onToggleVideo?: () => void
 }
 
 export default function ChatPanel({
@@ -34,6 +45,10 @@ export default function ChatPanel({
   messages,
   localParticipantId,
   signalingRef,
+  participants = [],
+  speakingParticipants = new Set(),
+  onToggleMute,
+  onToggleVideo,
 }: ChatPanelProps) {
   const [message, setMessage] = useState("")
   const [typingUsers, setTypingUsers] = useState<string[]>([])
@@ -98,24 +113,91 @@ export default function ChatPanel({
   return (
     <div className="h-full flex flex-col bg-gray-900/95 backdrop-blur-xl rounded-2xl overflow-hidden">
       {/* Modern Header */}
-      <div className="flex items-center justify-between p-4 sm:p-6 bg-gradient-to-r from-blue-600/10 to-purple-600/10 border-b border-gray-700/50">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-white" />
+      <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-600/10 to-purple-600/10 border-b border-gray-700/50">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-50 text-lg">Chat</h3>
+              <p className="text-xs text-gray-400">{messages.filter((m) => m.type === "text").length} messages</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-50 text-lg">Chat</h3>
-            <p className="text-xs text-gray-400">{messages.filter((m) => m.type === "text").length} messages</p>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-50 hover:bg-gray-800/50 rounded-xl"
+          >
+            <X className="w-5 h-5" />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-50 hover:bg-gray-800/50 rounded-xl"
-        >
-          <X className="w-5 h-5" />
-        </Button>
+
+        {/* Active Speakers & Controls */}
+        {participants.length > 0 && (
+          <>
+            <Separator className="my-3 bg-gray-700/50" />
+            <div className="space-y-2">
+              {/* Speaking Indicator */}
+              {Array.from(speakingParticipants).length > 0 && (
+                <div className="flex items-center space-x-2 text-xs text-green-400 bg-green-500/10 rounded-lg px-3 py-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  <span className="font-medium">
+                    {Array.from(speakingParticipants).map(id => 
+                      participants.find(p => p.id === id)?.name
+                    ).filter(Boolean).join(", ")} speaking
+                  </span>
+                </div>
+              )}
+
+              {/* Local Controls */}
+              {localParticipantId && (
+                <div className="flex items-center justify-between bg-gray-800/50 rounded-lg px-3 py-2">
+                  <span className="text-xs text-gray-300 font-medium">Your controls</span>
+                  <div className="flex items-center space-x-1">
+                    {onToggleMute && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onToggleMute}
+                        className={`h-7 w-7 p-0 rounded-lg ${
+                          participants.find(p => p.id === localParticipantId)?.isMuted
+                            ? "text-red-400 hover:text-red-300 bg-red-500/10"
+                            : "text-green-400 hover:text-green-300 bg-green-500/10"
+                        }`}
+                      >
+                        {participants.find(p => p.id === localParticipantId)?.isMuted ? (
+                          <MicOff className="w-4 h-4" />
+                        ) : (
+                          <Mic className="w-4 h-4" />
+                        )}
+                      </Button>
+                    )}
+                    {onToggleVideo && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onToggleVideo}
+                        className={`h-7 w-7 p-0 rounded-lg ${
+                          participants.find(p => p.id === localParticipantId)?.isVideoOff
+                            ? "text-red-400 hover:text-red-300 bg-red-500/10"
+                            : "text-green-400 hover:text-green-300 bg-green-500/10"
+                        }`}
+                      >
+                        {participants.find(p => p.id === localParticipantId)?.isVideoOff ? (
+                          <VideoOff className="w-4 h-4" />
+                        ) : (
+                          <Video className="w-4 h-4" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Enhanced Messages Area */}

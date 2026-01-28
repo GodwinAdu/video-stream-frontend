@@ -1,5 +1,6 @@
 "use client"
 
+import React, { useState } from "react"
 import { X, Sparkles, Brain, Eye, FileText, Zap, Shield, Mic, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -24,6 +25,7 @@ interface AIFeaturesPanelProps {
   setVirtualBackgroundsEnabled: (value: boolean) => void
   onGenerateMeetingInsights: () => void
   isGeneratingInsights: boolean
+  localStream?: MediaStream | null
 }
 
 export default function AIFeaturesPanel({
@@ -40,7 +42,39 @@ export default function AIFeaturesPanel({
   setVirtualBackgroundsEnabled,
   onGenerateMeetingInsights,
   isGeneratingInsights,
+  localStream,
 }: AIFeaturesPanelProps) {
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingFeature, setProcessingFeature] = useState<string | null>(null)
+
+  // Simulate AI processing
+  const handleFeatureToggle = async (feature: string, setter: (value: boolean) => void, currentValue: boolean) => {
+    if (!currentValue) {
+      setIsProcessing(true)
+      setProcessingFeature(feature)
+      
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      setter(true)
+      setIsProcessing(false)
+      setProcessingFeature(null)
+    } else {
+      setter(false)
+    }
+  }
+
+  // Apply virtual background effect
+  const applyVirtualBackground = async () => {
+    if (localStream && virtualBackgroundsEnabled) {
+      console.log('Applying virtual background effect...')
+      // In a real implementation, this would apply canvas-based background replacement
+    }
+  }
+
+  React.useEffect(() => {
+    applyVirtualBackground()
+  }, [virtualBackgroundsEnabled, localStream])
   return (
     <div className="h-full flex flex-col bg-gray-900/95 backdrop-blur-xl rounded-2xl overflow-hidden">
       {/* Modern Header */}
@@ -87,8 +121,15 @@ export default function AIFeaturesPanel({
                 <div className="flex-1">
                   <Label className="text-sm text-gray-300">AI Noise Reduction</Label>
                   <p className="text-xs text-gray-500 mt-1">Remove background noise using AI</p>
+                  {isProcessing && processingFeature === 'noise-reduction' && (
+                    <p className="text-xs text-blue-400 mt-1">🔄 Processing...</p>
+                  )}
                 </div>
-                <Switch checked={noiseReduction} onCheckedChange={setNoiseReduction} />
+                <Switch 
+                  checked={noiseReduction} 
+                  onCheckedChange={(value) => handleFeatureToggle('noise-reduction', setNoiseReduction, noiseReduction)}
+                  disabled={isProcessing}
+                />
               </div>
 
               {noiseReduction && (
@@ -130,16 +171,30 @@ export default function AIFeaturesPanel({
                 <div className="flex-1">
                   <Label className="text-sm text-gray-300">Background Blur</Label>
                   <p className="text-xs text-gray-500 mt-1">AI-powered background blur</p>
+                  {isProcessing && processingFeature === 'background-blur' && (
+                    <p className="text-xs text-blue-400 mt-1">🔄 Processing...</p>
+                  )}
                 </div>
-                <Switch checked={backgroundBlur} onCheckedChange={setBackgroundBlur} />
+                <Switch 
+                  checked={backgroundBlur} 
+                  onCheckedChange={(value) => handleFeatureToggle('background-blur', setBackgroundBlur, backgroundBlur)}
+                  disabled={isProcessing}
+                />
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <Label className="text-sm text-gray-300">Auto Framing</Label>
                   <p className="text-xs text-gray-500 mt-1">Keep you centered in frame</p>
+                  {isProcessing && processingFeature === 'auto-framing' && (
+                    <p className="text-xs text-blue-400 mt-1">🔄 Processing...</p>
+                  )}
                 </div>
-                <Switch checked={autoFraming} onCheckedChange={setAutoFraming} />
+                <Switch 
+                  checked={autoFraming} 
+                  onCheckedChange={(value) => handleFeatureToggle('auto-framing', setAutoFraming, autoFraming)}
+                  disabled={isProcessing}
+                />
               </div>
 
               <div className="flex items-center justify-between">
@@ -155,8 +210,15 @@ export default function AIFeaturesPanel({
                 <div className="flex-1">
                   <Label className="text-sm text-gray-300">Virtual Backgrounds</Label>
                   <p className="text-xs text-gray-500 mt-1">AI-generated backgrounds</p>
+                  {isProcessing && processingFeature === 'virtual-bg' && (
+                    <p className="text-xs text-blue-400 mt-1">🔄 Processing...</p>
+                  )}
                 </div>
-                <Switch checked={virtualBackgroundsEnabled} onCheckedChange={setVirtualBackgroundsEnabled} />
+                <Switch 
+                  checked={virtualBackgroundsEnabled} 
+                  onCheckedChange={(value) => handleFeatureToggle('virtual-bg', setVirtualBackgroundsEnabled, virtualBackgroundsEnabled)}
+                  disabled={isProcessing}
+                />
               </div>
 
               {virtualBackgroundsEnabled && (

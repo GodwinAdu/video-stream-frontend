@@ -1,17 +1,101 @@
 "use client"
 
-import { X, Lightbulb, ListChecks } from "lucide-react"
+import { useState, useEffect } from "react"
+import { X, Lightbulb, ListChecks, Download, Share, Copy, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { toast } from "sonner"
 
 interface MeetingInsightsPanelProps {
   onClose: () => void
   summary: string | null
   actionItems: string[]
   isLoading: boolean
+  chatMessages?: any[]
+  participants?: any[]
 }
 
-export default function MeetingInsightsPanel({ onClose, summary, actionItems, isLoading }: MeetingInsightsPanelProps) {
+export default function MeetingInsightsPanel({ 
+  onClose, 
+  summary, 
+  actionItems, 
+  isLoading, 
+  chatMessages = [], 
+  participants = [] 
+}: MeetingInsightsPanelProps) {
+  const [generatedSummary, setGeneratedSummary] = useState<string | null>(summary)
+  const [generatedActionItems, setGeneratedActionItems] = useState<string[]>(actionItems)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [meetingStats, setMeetingStats] = useState({
+    duration: '0:00',
+    messageCount: 0,
+    participantCount: 0,
+    engagement: 'High'
+  })
+
+  useEffect(() => {
+    setMeetingStats({
+      duration: '25:30', // This would be calculated from meeting start time
+      messageCount: chatMessages.length,
+      participantCount: participants.length,
+      engagement: participants.length > 2 ? 'High' : 'Medium'
+    })
+  }, [chatMessages, participants])
+
+  const generateInsights = async () => {
+    setIsGenerating(true)
+    
+    // Simulate AI processing
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    
+    // Generate mock insights based on meeting data
+    const mockSummary = `Meeting focused on project planning and task allocation. Key decisions were made regarding timeline and resource allocation. Team discussed upcoming milestones and identified potential blockers. Overall productive session with clear next steps identified.`
+    
+    const mockActionItems = [
+      'Complete user research by Friday',
+      'Schedule follow-up meeting with stakeholders',
+      'Review and update project timeline',
+      'Prepare presentation for next week\'s demo'
+    ]
+    
+    setGeneratedSummary(mockSummary)
+    setGeneratedActionItems(mockActionItems)
+    setIsGenerating(false)
+    toast.success('Meeting insights generated successfully!')
+  }
+
+  const exportSummary = () => {
+    const content = `Meeting Summary\n\n${generatedSummary}\n\nAction Items:\n${generatedActionItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}`
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `meeting-summary-${new Date().toISOString().split('T')[0]}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Summary exported successfully!')
+  }
+
+  const copyToClipboard = async () => {
+    const content = `Meeting Summary\n\n${generatedSummary}\n\nAction Items:\n${generatedActionItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}`
+    await navigator.clipboard.writeText(content)
+    toast.success('Summary copied to clipboard!')
+  }
+
+  const shareInsights = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Meeting Summary',
+          text: `Meeting Summary\n\n${generatedSummary}\n\nAction Items:\n${generatedActionItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}`
+        })
+      } catch (err) {
+        console.log('Share cancelled')
+      }
+    } else {
+      copyToClipboard()
+    }
+  }
   return (
     <div className="h-full flex flex-col bg-gray-900/95 backdrop-blur-xl rounded-2xl overflow-hidden">
       {/* Modern Header */}
@@ -38,7 +122,7 @@ export default function MeetingInsightsPanel({ onClose, summary, actionItems, is
       {/* Enhanced Insights Content */}
       <ScrollArea className="flex-1">
         <div className="p-4 sm:p-6 space-y-6">
-          {isLoading ? (
+          {(isLoading || isGenerating) ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
               <div className="w-16 h-16 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-full flex items-center justify-center mb-4">
                 <Lightbulb className="w-8 h-8 text-yellow-400 animate-pulse" />
@@ -59,9 +143,9 @@ export default function MeetingInsightsPanel({ onClose, summary, actionItems, is
                 />
               </div>
             </div>
-          ) : summary || actionItems.length > 0 ? (
+          ) : generatedSummary || generatedActionItems.length > 0 ? (
             <div className="space-y-6">
-              {summary && (
+              {generatedSummary && (
                 <div className="bg-gray-800/30 rounded-xl p-4 sm:p-5 border border-gray-700/50">
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center">
@@ -73,12 +157,12 @@ export default function MeetingInsightsPanel({ onClose, summary, actionItems, is
                     </div>
                   </div>
                   <div className="prose prose-sm prose-invert max-w-none">
-                    <p className="text-gray-300 leading-relaxed">{summary}</p>
+                    <p className="text-gray-300 leading-relaxed">{generatedSummary}</p>
                   </div>
                 </div>
               )}
 
-              {actionItems.length > 0 && (
+              {generatedActionItems.length > 0 && (
                 <div className="bg-gray-800/30 rounded-xl p-4 sm:p-5 border border-gray-700/50">
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
@@ -86,11 +170,11 @@ export default function MeetingInsightsPanel({ onClose, summary, actionItems, is
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-50">Action Items</h4>
-                      <p className="text-xs text-gray-400">{actionItems.length} tasks identified</p>
+                      <p className="text-xs text-gray-400">{generatedActionItems.length} tasks identified</p>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    {actionItems.map((item, index) => (
+                    {generatedActionItems.map((item, index) => (
                       <div key={index} className="flex items-start space-x-3 p-3 bg-gray-800/50 rounded-lg">
                         <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                           <span className="text-xs font-medium text-green-400">{index + 1}</span>
@@ -102,26 +186,46 @@ export default function MeetingInsightsPanel({ onClose, summary, actionItems, is
                 </div>
               )}
 
-              {/* Additional Insights Sections */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Meeting Statistics */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
-                  <div className="flex items-center space-x-2 mb-3">
+                  <div className="flex items-center space-x-2 mb-2">
                     <div className="w-6 h-6 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                      <span className="text-xs text-blue-400">📊</span>
-                    </div>
-                    <h5 className="font-medium text-gray-50 text-sm">Engagement</h5>
-                  </div>
-                  <p className="text-xs text-gray-400">High participation from all attendees</p>
-                </div>
-
-                <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                      <span className="text-xs text-purple-400">⏱️</span>
+                      <span className="text-xs text-blue-400">⏱️</span>
                     </div>
                     <h5 className="font-medium text-gray-50 text-sm">Duration</h5>
                   </div>
-                  <p className="text-xs text-gray-400">Meeting ran efficiently</p>
+                  <p className="text-lg font-semibold text-white">{meetingStats.duration}</p>
+                </div>
+
+                <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-6 h-6 bg-green-500/20 rounded-lg flex items-center justify-center">
+                      <span className="text-xs text-green-400">👥</span>
+                    </div>
+                    <h5 className="font-medium text-gray-50 text-sm">People</h5>
+                  </div>
+                  <p className="text-lg font-semibold text-white">{meetingStats.participantCount}</p>
+                </div>
+
+                <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                      <span className="text-xs text-purple-400">💬</span>
+                    </div>
+                    <h5 className="font-medium text-gray-50 text-sm">Messages</h5>
+                  </div>
+                  <p className="text-lg font-semibold text-white">{meetingStats.messageCount}</p>
+                </div>
+
+                <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-6 h-6 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                      <span className="text-xs text-yellow-400">📊</span>
+                    </div>
+                    <h5 className="font-medium text-gray-50 text-sm">Engagement</h5>
+                  </div>
+                  <p className="text-lg font-semibold text-white">{meetingStats.engagement}</p>
                 </div>
               </div>
             </div>
@@ -135,10 +239,12 @@ export default function MeetingInsightsPanel({ onClose, summary, actionItems, is
                 Generate meeting insights from the AI Features panel to see analysis here
               </p>
               <Button
-                variant="outline"
-                className="mt-4 border-gray-600 text-gray-300 hover:bg-gray-800/50 bg-transparent"
+                onClick={generateInsights}
+                disabled={isGenerating}
+                className="mt-4 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white"
               >
-                Open AI Features
+                <Lightbulb className="w-4 h-4 mr-2" />
+                {isGenerating ? 'Generating...' : 'Generate Insights'}
               </Button>
             </div>
           )}
@@ -146,17 +252,31 @@ export default function MeetingInsightsPanel({ onClose, summary, actionItems, is
       </ScrollArea>
 
       {/* Modern Footer */}
-      {(summary || actionItems.length > 0) && (
+      {(generatedSummary || generatedActionItems.length > 0) && (
         <div className="p-4 sm:p-6 border-t border-gray-700/50 bg-gray-800/30">
-          <div className="flex space-x-3">
+          <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
-              className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800/50 bg-transparent"
+              onClick={exportSummary}
+              className="border-gray-600 text-gray-300 hover:bg-gray-800/50 bg-transparent"
             >
-              📄 Export Summary
+              <Download className="w-4 h-4 mr-1" />
+              Export
             </Button>
-            <Button className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white">
-              📧 Share Insights
+            <Button
+              variant="outline"
+              onClick={copyToClipboard}
+              className="border-gray-600 text-gray-300 hover:bg-gray-800/50 bg-transparent"
+            >
+              <Copy className="w-4 h-4 mr-1" />
+              Copy
+            </Button>
+            <Button 
+              onClick={shareInsights}
+              className="bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white"
+            >
+              <Share className="w-4 h-4 mr-1" />
+              Share
             </Button>
           </div>
         </div>

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { X, Mic, Video, Monitor, Wifi } from "lucide-react"
+import { useState, useEffect } from "react"
+import { X, Mic, Video, Monitor, Wifi, RefreshCw, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -9,9 +9,16 @@ import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { toast } from "sonner"
 
 interface SettingsPanelProps {
   onClose: () => void
+}
+
+interface MediaDeviceInfo {
+  deviceId: string
+  label: string
+  kind: string
 }
 
 export default function SettingsPanel({ onClose }: SettingsPanelProps) {
@@ -27,6 +34,79 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [notifications, setNotifications] = useState(true)
   const [soundEffects, setSoundEffects] = useState(true)
   const [theme, setTheme] = useState("dark")
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [networkStats, setNetworkStats] = useState({
+    quality: "Excellent",
+    latency: "45ms",
+    upload: "2.1 Mbps",
+    download: "15.3 Mbps"
+  })
+
+  // Load settings from localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('meeting-settings')
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings)
+      setMicrophoneVolume([settings.microphoneVolume || 75])
+      setSpeakerVolume([settings.speakerVolume || 80])
+      setCameraQuality(settings.cameraQuality || "720p")
+      setEchoCancellation(settings.echoCancellation ?? true)
+      setNoiseSuppression(settings.noiseSuppression ?? true)
+      setAutoGainControl(settings.autoGainControl ?? true)
+      setNotifications(settings.notifications ?? true)
+      setSoundEffects(settings.soundEffects ?? true)
+      setTheme(settings.theme || "dark")
+    }
+    enumerateDevices()
+  }, [])
+
+  // Enumerate media devices
+  const enumerateDevices = async () => {
+    try {
+      setIsLoading(true)
+      const deviceList = await navigator.mediaDevices.enumerateDevices()
+      setDevices(deviceList.map(device => ({
+        deviceId: device.deviceId,
+        label: device.label || `${device.kind} ${device.deviceId.slice(0, 8)}`,
+        kind: device.kind
+      })))
+    } catch (error) {
+      console.error('Failed to enumerate devices:', error)
+      toast.error('Failed to load media devices')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Save settings to localStorage
+  const saveSettings = () => {
+    const settings = {
+      microphoneVolume: microphoneVolume[0],
+      speakerVolume: speakerVolume[0],
+      cameraQuality,
+      microphoneDevice,
+      cameraDevice,
+      speakerDevice,
+      echoCancellation,
+      noiseSuppression,
+      autoGainControl,
+      notifications,
+      soundEffects,
+      theme
+    }
+    localStorage.setItem('meeting-settings', JSON.stringify(settings))
+    toast.success('Settings saved successfully')
+  }
+
+  // Apply theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
+  const audioInputs = devices.filter(d => d.kind === 'audioinput')
+  const videoInputs = devices.filter(d => d.kind === 'videoinput')
+  const audioOutputs = devices.filter(d => d.kind === 'audiooutput')
 
   return (
     <div className="fixed inset-y-0 right-0 w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-50 overflow-y-auto">
@@ -57,8 +137,11 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="default">Default Microphone</SelectItem>
-                    <SelectItem value="built-in">Built-in Microphone</SelectItem>
-                    <SelectItem value="usb">USB Microphone</SelectItem>
+                    {audioInputs.map(device => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -83,8 +166,11 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="default">Default Speaker</SelectItem>
-                    <SelectItem value="built-in">Built-in Speaker</SelectItem>
-                    <SelectItem value="headphones">Headphones</SelectItem>
+                    {audioOutputs.map(device => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -131,8 +217,11 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="default">Default Camera</SelectItem>
-                    <SelectItem value="built-in">Built-in Camera</SelectItem>
-                    <SelectItem value="usb">USB Camera</SelectItem>
+                    {videoInputs.map(device => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -197,27 +286,60 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
               <CardTitle className="text-white flex items-center gap-2">
                 <Wifi className="w-4 h-4" />
                 Network
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    // Simulate network test
+                    setIsLoading(true)
+                    setTimeout(() => {
+                      setNetworkStats({
+                        quality: Math.random() > 0.5 ? "Excellent" : "Good",
+                        latency: `${Math.floor(Math.random() * 100 + 20)}ms`,
+                        upload: `${(Math.random() * 5 + 1).toFixed(1)} Mbps`,
+                        download: `${(Math.random() * 20 + 10).toFixed(1)} Mbps`
+                      })
+                      setIsLoading(false)
+                    }, 2000)
+                  }}
+                  className="ml-auto"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-300">Connection Quality:</span>
-                <span className="text-green-400">Excellent</span>
+                <span className={networkStats.quality === "Excellent" ? "text-green-400" : "text-yellow-400"}>
+                  {networkStats.quality}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-300">Latency:</span>
-                <span className="text-white">45ms</span>
+                <span className="text-white">{networkStats.latency}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-300">Upload:</span>
-                <span className="text-white">2.1 Mbps</span>
+                <span className="text-white">{networkStats.upload}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-300">Download:</span>
-                <span className="text-white">15.3 Mbps</span>
+                <span className="text-white">{networkStats.download}</span>
               </div>
             </CardContent>
           </Card>
+
+          {/* Save Settings */}
+          <div className="flex space-x-2">
+            <Button onClick={saveSettings} className="flex-1">
+              <Save className="w-4 h-4 mr-2" />
+              Save Settings
+            </Button>
+            <Button variant="outline" onClick={enumerateDevices} disabled={isLoading}>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
