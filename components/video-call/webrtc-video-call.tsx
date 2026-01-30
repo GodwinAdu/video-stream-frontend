@@ -142,10 +142,10 @@ const ParticipantGrid = ({
         const sidebarParticipants = participants.filter(p => p.id !== mainParticipant?.id).slice(0, 4)
 
         return (
-            <div className="h-full flex gap-2 p-2 md:p-4">
+            <div className="h-full flex gap-3 md:gap-4 lg:gap-6 p-4 md:p-6 lg:p-8 max-w-[1920px] mx-auto">
                 {/* Main speaker */}
                 <div className="flex-1 flex items-center justify-center">
-                    <div className="w-full h-full max-w-5xl">
+                    <div className="w-full h-full max-w-6xl">
                         {mainParticipant && (
                             <ParticipantVideo 
                                 participant={mainParticipant} 
@@ -158,7 +158,7 @@ const ParticipantGrid = ({
                 </div>
                 {/* Sidebar */}
                 {sidebarParticipants.length > 0 && (
-                    <div className="w-32 md:w-40 lg:w-48 flex flex-col gap-2 overflow-y-auto">
+                    <div className="w-40 md:w-48 lg:w-56 xl:w-64 flex flex-col gap-3 md:gap-4 overflow-y-auto">
                         {sidebarParticipants.map((participant) => (
                             <div key={participant.id} className="aspect-[4/3]">
                                 <ParticipantVideo 
@@ -182,8 +182,8 @@ const ParticipantGrid = ({
             : participants.find(p => p.isLocal) || participants[0]
 
         return (
-            <div className="h-full flex items-center justify-center p-2 md:p-4">
-                <div className="w-full h-full max-w-6xl">
+            <div className="h-full flex items-center justify-center p-4 md:p-6 lg:p-8">
+                <div className="w-full h-full max-w-7xl">
                     {focusParticipant && (
                         <ParticipantVideo 
                             participant={focusParticipant} 
@@ -211,14 +211,22 @@ const ParticipantGrid = ({
     }
 
     const getContainerClass = () => {
-        if (count === 1) return "max-w-5xl mx-auto"
-        if (count === 2) return "max-w-6xl mx-auto"
-        return "w-full"
+        if (count === 1) return "max-w-6xl mx-auto px-8 lg:px-16"
+        if (count === 2) return "max-w-7xl mx-auto px-6 lg:px-12"
+        if (count <= 4) return "max-w-7xl mx-auto px-4 lg:px-8"
+        return "w-full px-4 lg:px-6 xl:px-8"
+    }
+
+    const getGap = () => {
+        if (count === 1) return "gap-0"
+        if (count <= 4) return "gap-3 md:gap-4 lg:gap-6"
+        if (count <= 9) return "gap-2 md:gap-3 lg:gap-4"
+        return "gap-2 md:gap-2.5 lg:gap-3"
     }
 
     return (
-        <div className={`${getContainerClass()} h-full flex items-center justify-center p-2 md:p-4`}>
-            <div className={`grid gap-2 md:gap-3 w-full auto-rows-fr ${getResponsiveGrid()}`}>
+        <div className={`${getContainerClass()} h-full flex items-center justify-center py-4 md:py-6 lg:py-8`}>
+            <div className={`grid ${getGap()} w-full auto-rows-fr ${getResponsiveGrid()}`}>
                 {currentParticipants.map((participant) => (
                     <div key={participant.id} className="relative w-full" style={{ aspectRatio: count === 1 ? '16/9' : count <= 4 ? '4/3' : '1/1' }}>
                         <ParticipantVideo 
@@ -312,10 +320,10 @@ const ParticipantVideo = ({
 
     return (
         <div
-            className={`relative bg-gray-800 rounded-lg sm:rounded-xl overflow-hidden group transition-all duration-200 w-full h-full ${
+            className={`relative bg-gray-800 rounded-xl lg:rounded-2xl overflow-hidden group transition-all duration-200 w-full h-full shadow-lg ${
                 isSpeaking 
                     ? "ring-4 sm:ring-[6px] ring-green-400 shadow-2xl shadow-green-400/50 scale-[1.02]" 
-                    : "ring-1 ring-gray-700/50"
+                    : "ring-1 ring-gray-700/50 hover:ring-2 hover:ring-gray-600/50"
             }`}
         >
             {participant.stream && participant.stream.active && !participant.isVideoOff && !hasVideoError ? (
@@ -459,6 +467,7 @@ export default function WebRTCVideoCall() {
         networkQuality,
         bandwidth,
         speakingParticipants,
+        screenSharingParticipantId,
         joinRoom,
         leaveRoom,
         toggleMute,
@@ -898,8 +907,12 @@ export default function WebRTCVideoCall() {
     }, [isConnected, participants.length])
 
     // Include local participant in the list
-    // Check if local user is host: they're host if participants array is empty (first to join)
-    const isLocalHost = participants.length === 0 || participants.find(p => p.id === localParticipantId)?.isHost || false
+    // Determine if local user is host from participants array or if they're the only one
+    const remoteHostExists = participants.some(p => p.isHost)
+    const isLocalHost = localParticipantId ? (
+        participants.find(p => p.id === localParticipantId)?.isHost || 
+        (!remoteHostExists && participants.length === 0)
+    ) : false
     
     const localParticipant = localParticipantId
         ? {
@@ -942,6 +955,31 @@ export default function WebRTCVideoCall() {
     useEffect(() => {
         console.log('Participants updated:', allParticipants.map(p => `${p.name} (${p.id})`).join(', '))
     }, [allParticipants])
+
+    // Automatic spotlight when screen sharing
+    useEffect(() => {
+        if (screenSharingParticipantId) {
+            // Someone is screen sharing - switch to focus mode and pin them
+            console.log(`Screen sharing detected from ${screenSharingParticipantId}, switching to spotlight`)
+            setViewMode("focus")
+            setPinnedParticipant(screenSharingParticipantId)
+            
+            // Show toast notification
+            import('sonner').then(({ toast }) => {
+                const sharingParticipant = allParticipants.find(p => p.id === screenSharingParticipantId)
+                const sharerName = sharingParticipant?.name || 'Someone'
+                toast.info(`${sharerName} is presenting`, {
+                    duration: 3000,
+                    icon: '🖥️',
+                })
+            })
+        } else if (pinnedParticipant && viewMode === "focus") {
+            // Screen sharing stopped - return to gallery view
+            console.log('Screen sharing stopped, returning to gallery view')
+            setViewMode("gallery")
+            setPinnedParticipant(null)
+        }
+    }, [screenSharingParticipantId, allParticipants])
 
 
 
@@ -1074,39 +1112,39 @@ export default function WebRTCVideoCall() {
                 )}
 
                 {/* Main Video Area with Pagination */}
-                <div className="flex-1 relative bg-gray-950 overflow-hidden">
+                <div className="flex-1 relative bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 overflow-hidden">
                     {/* Enhanced View Mode Controls */}
-                    <div className="absolute top-2 sm:top-4 left-2 sm:left-4 z-10 flex flex-wrap gap-1 sm:gap-2">
+                    <div className="absolute top-4 sm:top-6 lg:top-8 left-4 sm:left-6 lg:left-8 z-10 flex flex-wrap gap-2 sm:gap-3">
                         <Button
                             variant={viewMode === "gallery" ? "default" : "secondary"}
                             size="sm"
                             onClick={() => setViewMode("gallery")}
-                            className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
+                            className="h-8 sm:h-9 lg:h-10 px-3 sm:px-4 text-xs sm:text-sm shadow-lg"
                         >
-                            <Grid3X3 className="w-3 h-3 sm:mr-1" />
+                            <Grid3X3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
                             <span className="hidden sm:inline">Gallery</span>
                         </Button>
                         <Button
                             variant={viewMode === "speaker" ? "default" : "secondary"}
                             size="sm"
                             onClick={() => setViewMode("speaker")}
-                            className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
+                            className="h-8 sm:h-9 lg:h-10 px-3 sm:px-4 text-xs sm:text-sm shadow-lg"
                         >
-                            <User className="w-3 h-3 sm:mr-1" />
+                            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
                             <span className="hidden sm:inline">Speaker</span>
                         </Button>
                         <Button
                             variant={viewMode === "focus" ? "default" : "secondary"}
                             size="sm"
                             onClick={() => setViewMode("focus")}
-                            className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
+                            className="h-8 sm:h-9 lg:h-10 px-3 sm:px-4 text-xs sm:text-sm shadow-lg"
                         >
-                            <Maximize className="w-3 h-3 sm:mr-1" />
+                            <Maximize className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
                             <span className="hidden sm:inline">Focus</span>
                         </Button>
                         {allParticipants.length > 6 && (
-                            <div className="bg-black/50 backdrop-blur-sm rounded px-2 py-1 text-xs text-white">
-                                {allParticipants.length} users
+                            <div className="bg-black/60 backdrop-blur-md rounded-lg px-3 py-2 text-xs sm:text-sm text-white shadow-lg border border-gray-700/50">
+                                {allParticipants.length} participants
                             </div>
                         )}
                     </div>
@@ -1124,17 +1162,17 @@ export default function WebRTCVideoCall() {
 
                     {/* Pagination Controls */}
                     {hasMultiplePages && (
-                        <div className="absolute bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 z-20">
+                        <div className="absolute bottom-24 md:bottom-28 lg:bottom-32 left-1/2 transform -translate-x-1/2 flex items-center space-x-3 bg-black/70 backdrop-blur-md rounded-xl px-5 py-3 z-20 shadow-2xl border border-gray-700/50">
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                                 disabled={currentPage === 0}
-                                className="text-white hover:bg-white/20"
+                                className="text-white hover:bg-white/20 h-9 w-9 p-0"
                             >
-                                <ChevronLeft className="w-4 h-4" />
+                                <ChevronLeft className="w-5 h-5" />
                             </Button>
-                            <span className="text-white text-sm">
+                            <span className="text-white text-sm font-medium min-w-[60px] text-center">
                                 {currentPage + 1} / {totalPages}
                             </span>
                             <Button
@@ -1142,9 +1180,9 @@ export default function WebRTCVideoCall() {
                                 size="sm"
                                 onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
                                 disabled={currentPage === totalPages - 1}
-                                className="text-white hover:bg-white/20"
+                                className="text-white hover:bg-white/20 h-9 w-9 p-0"
                             >
-                                <ChevronRight className="w-4 h-4" />
+                                <ChevronRight className="w-5 h-5" />
                             </Button>
                         </div>
                     )}

@@ -47,6 +47,7 @@ export interface WebRTCState {
   networkQuality: "excellent" | "good" | "poor" | "disconnected"
   bandwidth: { upload: number; download: number }
   speakingParticipants: Set<string>
+  screenSharingParticipantId: string | null
 }
 
 export interface WebRTCActions {
@@ -81,6 +82,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   const [bandwidth, setBandwidth] = useState({ upload: 0, download: 0 })
   const [speakingParticipants, setSpeakingParticipants] = useState<Set<string>>(new Set())
   const [virtualBackgroundStream, setVirtualBackgroundStream] = useState<MediaStream | null>(null)
+  const [screenSharingParticipantId, setScreenSharingParticipantId] = useState<string | null>(null)
 
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map()) // participantId -> RTCPeerConnection
   const signalingRef = useRef<Socket | null>(null)
@@ -709,7 +711,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         leaveRoom()
       })
 
-      socket.on("host-changed", ({ newHostId, newHostName }) => {
+      socket.on("host-changed", ({ newHostId, newHostName, participants: hostUpdates }) => {
         console.log(`[Socket] Host changed to ${newHostName} (${newHostId})`)
         setParticipants((prev) =>
           prev.map((p) => ({
@@ -717,6 +719,14 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
             isHost: p.id === newHostId,
           })),
         )
+        
+        // Show toast notification
+        import('sonner').then(({ toast }) => {
+          toast.info(`${newHostName} is now the host`, {
+            duration: 3000,
+            icon: '👑',
+          })
+        })
       })
 
       // Host control events
@@ -809,6 +819,19 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
             return p
           }),
         )
+      })
+
+      // Screen sharing events
+      socket.on("screen-share-started", ({ participantId }) => {
+        console.log(`[Socket] ${participantId} started screen sharing`)
+        setScreenSharingParticipantId(participantId)
+      })
+
+      socket.on("screen-share-stopped", ({ participantId }) => {
+        console.log(`[Socket] ${participantId} stopped screen sharing`)
+        if (screenSharingParticipantId === participantId) {
+          setScreenSharingParticipantId(null)
+        }
       })
 
       signalingRef.current = socket
@@ -1194,12 +1217,19 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       setLocalStream(localStream)
       setIsScreenSharing(false)
+      setScreenSharingParticipantId(null)
+      
+      // Notify other participants that screen sharing stopped
+      if (signalingRef.current) {
+        signalingRef.current.emit("screen-share-stopped", { participantId: localParticipantId })
+      }
+      
       console.log("Screen sharing stopped, camera restored.")
     } catch (err) {
       console.error("Failed to stop screen sharing or get camera back:", err)
       setError("Failed to stop screen sharing or restore camera. Please refresh.")
     }
-  }, [localStream])
+  }, [localStream, localParticipantId])
 
   // Start screen sharing
   const startScreenShare = useCallback(async () => {
@@ -1253,6 +1283,13 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       setLocalStream(localStream)
       setIsScreenSharing(true)
+      setScreenSharingParticipantId(localParticipantId)
+      
+      // Notify other participants about screen sharing
+      if (signalingRef.current) {
+        signalingRef.current.emit("screen-share-started", { participantId: localParticipantId })
+      }
+      
       console.log("Screen sharing started.")
 
       screenVideoTrack.onended = () => {
@@ -1263,7 +1300,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       console.error("Failed to start screen sharing:", err)
       setError("Failed to start screen sharing. Please check permissions.")
     }
-  }, [localStream, stopScreenShare])
+  }, [localStream, stopScreenShare, localParticipantId])
 
   // Cleanup on unmount - now leaveRoom is stable, so this only runs on unmount
   useEffect(() => {
@@ -1287,6 +1324,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     networkQuality,
     bandwidth,
     speakingParticipants,
+    screenSharingParticipantId,
     joinRoom,
     leaveRoom,
     toggleMute,
