@@ -203,14 +203,31 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     }
   }, [])
 
-  // Optimized ICE Servers for faster connection
+  // Production-ready ICE Servers with multiple STUN/TURN options
   const ICE_SERVERS = [
+    // Google STUN servers
     { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    // Cloudflare STUN
     { urls: "stun:stun.cloudflare.com:3478" },
+    // Free TURN servers (use your own in production)
     {
-      urls: "turn:relay1.expressturn.com:3478",
-      username: "efJBIBF6EWKP2RBDQD",
-      credential: "sMmrZSqZF85OgGVm",
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
     },
   ]
   const SIGNALING_SERVER_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
@@ -230,16 +247,23 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         iceCandidatePoolSize: 10,
         bundlePolicy: "max-bundle",
         rtcpMuxPolicy: "require",
-        iceTransportPolicy: "all",
+        iceTransportPolicy: "all", // Try all connection types
       })
 
-      // Add local tracks
+      // Add local tracks with better error handling
       if (streamToAdd?.getTracks().length) {
         streamToAdd.getTracks().forEach(track => {
-          console.log(`[PC ${participantId}] Adding ${track.kind} track`)
-          peerConnection!.addTrack(track, streamToAdd)
+          try {
+            console.log(`[PC ${participantId}] Adding ${track.kind} track (enabled: ${track.enabled}, readyState: ${track.readyState})`)
+            const sender = peerConnection!.addTrack(track, streamToAdd)
+            console.log(`[PC ${participantId}] Track added successfully, sender:`, sender.track?.kind)
+          } catch (error) {
+            console.error(`[PC ${participantId}] Failed to add ${track.kind} track:`, error)
+          }
         })
         console.log(`[PC ${participantId}] Added ${streamToAdd.getTracks().length} tracks`)
+      } else {
+        console.warn(`[PC ${participantId}] No tracks to add to peer connection`)
       }
 
       // Handle ICE candidates with better logging
