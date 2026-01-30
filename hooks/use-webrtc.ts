@@ -494,8 +494,9 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           }]
         })
 
-        // Only create offer if this user has lower socket ID (prevents duplicate offers)
-        if (socket.id < participant.id && stream && stream.getTracks().length > 0) {
+        // Create peer connection and send offer immediately
+        // The new user will receive this and send back an answer
+        if (stream && stream.getTracks().length > 0) {
           const peerConnection = createPeerConnection(participant.id, stream)
           try {
             const offer = await peerConnection.createOffer({
@@ -508,9 +509,6 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           } catch (e) {
             console.error(`[Socket] ❌ Offer error:`, e)
           }
-        } else {
-          // Just create peer connection, wait for offer
-          createPeerConnection(participant.id, stream)
         }
       })
 
@@ -532,9 +530,11 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           isHost: p.isHost || false // Ensure isHost is preserved
         })))
 
-        // Create peer connections for existing users (they will send offers)
-        currentParticipants.forEach((participant: any) => {
+        // Don't send offers here - existing users will send offers when they receive user-joined event
+        // Just create peer connections ready to receive offers
+        remoteParticipants.forEach((participant: any) => {
           createPeerConnection(participant.id, stream)
+          console.log(`[Socket] Created peer connection for existing user ${participant.id}, waiting for offer`)
         })
       })
 
