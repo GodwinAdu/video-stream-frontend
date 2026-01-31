@@ -91,7 +91,7 @@ interface Participant {
     name: string
     isLocal: boolean
     isHost: boolean
-    stream: MediaStream | null
+    stream?: MediaStream
     isMuted: boolean
     isVideoOff: boolean
     isRaiseHand: boolean
@@ -580,11 +580,11 @@ export default function WebRTCVideoCall() {
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const localVideoRef = useRef<HTMLVideoElement>(null)
-    const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
-    const toolbarTimeoutRef = useRef<NodeJS.Timeout>()
+    const remoteVideoRefs = useRef(new Map<string, HTMLVideoElement>())
+    const toolbarTimeoutRef = useRef<NodeJS.Timeout | undefined>(null)
 
     // Picture-in-Picture
-    const { isPiPActive, isPiPSupported, togglePiP } = usePictureInPicture(localVideoRef.current)
+    const { isPiPActive, isPiPSupported, togglePiP } = usePictureInPicture(localVideoRef.current || null)
 
     const [currentRoomId, setCurrentRoomId] = useState<string>("")
     const [showDashboard, setShowDashboard] = useState(false)
@@ -706,7 +706,9 @@ export default function WebRTCVideoCall() {
         const socket = signalingRef.current
         if (socket) {
             socket.on("chat-message", handleIncomingChatMessage)
-            return () => socket.off("chat-message", handleIncomingChatMessage)
+            return () => {
+                socket.off("chat-message", handleIncomingChatMessage)
+            }
         }
     }, [handleIncomingChatMessage, signalingRef])
 
@@ -897,7 +899,7 @@ export default function WebRTCVideoCall() {
             setCurrentRoomId(roomId)
             // Get userId from auth if available
             const auth = getAuth()
-            const userId = auth?.userId
+            const userId = auth?.user?.id
             await joinRoom(roomId, userName, userId)
             setShowJoinDialog(false)
             // Update URL without page reload
@@ -964,7 +966,7 @@ export default function WebRTCVideoCall() {
             name: "You",
             isLocal: true,
             isHost: isLocalHost, // Use server-provided host status
-            stream: localStream,
+            stream: localStream || undefined,
             isMuted,
             isVideoOff,
             isRaiseHand: false,

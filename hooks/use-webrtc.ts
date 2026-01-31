@@ -62,7 +62,7 @@ export interface WebRTCActions {
   applyVirtualBackground: (stream: MediaStream | null) => void
   startScreenShare: () => Promise<void>
   stopScreenShare: () => void
-  sendMessage: (message: string) => void
+  sendMessage: (message: string, senderId: string, userName: string) => void
   getParticipantById: (id: string) => Participant | undefined
   setBufferedChatMessages: React.Dispatch<React.SetStateAction<any[]>> // Expose setter for buffered messages
 }
@@ -403,7 +403,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       socket.on("connect", () => {
         console.log("[Socket] Connected:", socket.id)
-        setLocalParticipantId(sock.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   et.id)
+        setLocalParticipantId(socket.id || null)
         setIsConnected(true)
         setIsReconnecting(false)
         setError(null)
