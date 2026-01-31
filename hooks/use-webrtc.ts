@@ -834,6 +834,23 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         }
       })
 
+      // Host spotlight events
+      socket.on("participant-spotlighted", ({ participantId, participantName }) => {
+        console.log(`[Socket] ${participantName} (${participantId}) was spotlighted`)
+        setScreenSharingParticipantId(participantId)
+        import('sonner').then(({ toast }) => {
+          toast.info(`${participantName} is now in spotlight`, {
+            duration: 3000,
+            icon: '🌟',
+          })
+        })
+      })
+
+      socket.on("spotlight-removed", () => {
+        console.log(`[Socket] Spotlight removed`)
+        setScreenSharingParticipantId(null)
+      })
+
       signalingRef.current = socket
       return socket
     },

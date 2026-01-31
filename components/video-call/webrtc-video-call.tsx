@@ -112,6 +112,7 @@ const ParticipantGrid = ({
     speakingParticipants,
     viewMode,
     pinnedParticipant,
+    setPinnedParticipant,
 }: {
     participants: Participant[]
     currentPage: number
@@ -120,6 +121,7 @@ const ParticipantGrid = ({
     speakingParticipants: Set<string>
     viewMode: "gallery" | "speaker" | "focus"
     pinnedParticipant: string | null
+    setPinnedParticipant?: (id: string | null) => void
 }) => {
     // Sort participants: speaking first, then others
     const sortedParticipants = [...participants].sort((a, b) => {
@@ -175,24 +177,66 @@ const ParticipantGrid = ({
         )
     }
 
-    // Focus view: show only pinned or local participant
+    // Focus view: show pinned participant large with others in scrollable sidebar
     if (viewMode === "focus") {
         const focusParticipant = pinnedParticipant 
             ? participants.find(p => p.id === pinnedParticipant) 
             : participants.find(p => p.isLocal) || participants[0]
+        
+        // Get other participants (excluding the focused one)
+        const otherParticipants = participants.filter(p => p.id !== focusParticipant?.id)
+        
+        // Pagination for sidebar participants
+        const sidebarPerPage = 6
+        const sidebarTotalPages = Math.ceil(otherParticipants.length / sidebarPerPage)
+        const sidebarStartIndex = currentPage * sidebarPerPage
+        const sidebarEndIndex = sidebarStartIndex + sidebarPerPage
+        const currentSidebarParticipants = otherParticipants.slice(sidebarStartIndex, sidebarEndIndex)
 
         return (
-            <div className="h-full flex items-center justify-center p-4 md:p-6 lg:p-8">
-                <div className="w-full h-full max-w-7xl">
-                    {focusParticipant && (
-                        <ParticipantVideo 
-                            participant={focusParticipant} 
-                            isLarge={true}
-                            onToggleVideo={focusParticipant.isLocal ? onToggleVideo : undefined}
-                            isSpeaking={speakingParticipants.has(focusParticipant.id)}
-                        />
-                    )}
+            <div className="h-full flex flex-col md:flex-row gap-2 md:gap-3 lg:gap-4 p-2 md:p-4 lg:p-6">
+                {/* Main focused participant */}
+                <div className="flex-1 flex items-center justify-center min-h-0">
+                    <div className="w-full h-full max-w-7xl">
+                        {focusParticipant && (
+                            <ParticipantVideo 
+                                participant={focusParticipant} 
+                                isLarge={true}
+                                onToggleVideo={focusParticipant.isLocal ? onToggleVideo : undefined}
+                                isSpeaking={speakingParticipants.has(focusParticipant.id)}
+                            />
+                        )}
+                    </div>
                 </div>
+                
+                {/* Sidebar with other participants */}
+                {otherParticipants.length > 0 && (
+                    <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:overflow-x-visible w-full md:w-32 lg:w-40 xl:w-48 h-24 md:h-auto pb-2 md:pb-0">
+                        {currentSidebarParticipants.map((participant) => (
+                            <div 
+                                key={participant.id} 
+                                className="flex-shrink-0 w-32 h-20 md:w-full md:h-auto md:aspect-[4/3] cursor-pointer"
+                                onClick={() => setPinnedParticipant(participant.id)}
+                            >
+                                <ParticipantVideo 
+                                    participant={participant} 
+                                    isLarge={false}
+                                    onToggleVideo={participant.isLocal ? onToggleVideo : undefined}
+                                    isSpeaking={speakingParticipants.has(participant.id)}
+                                />
+                            </div>
+                        ))}
+                        
+                        {/* Sidebar pagination indicator */}
+                        {sidebarTotalPages > 1 && (
+                            <div className="flex-shrink-0 w-32 md:w-full flex items-center justify-center bg-black/40 rounded-lg p-2">
+                                <span className="text-white text-xs">
+                                    {currentPage + 1}/{sidebarTotalPages}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         )
     }
@@ -1158,6 +1202,7 @@ export default function WebRTCVideoCall() {
                             speakingParticipants={speakingParticipants}
                             viewMode={viewMode}
                             pinnedParticipant={pinnedParticipant}
+                            setPinnedParticipant={setPinnedParticipant}
                         />
 
                     {/* Pagination Controls */}
@@ -1309,6 +1354,11 @@ export default function WebRTCVideoCall() {
                             onRenameParticipant={(participantId, newName) => {
                                 if (signalingRef.current) {
                                     signalingRef.current.emit('rename-participant', { participantId, newName })
+                                }
+                            }}
+                            onSpotlightParticipant={(participantId) => {
+                                if (signalingRef.current) {
+                                    signalingRef.current.emit('host-spotlight-participant', { participantId })
                                 }
                             }}
                             roomId={currentRoomId}

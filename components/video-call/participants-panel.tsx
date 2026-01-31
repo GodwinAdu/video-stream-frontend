@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { X, Mic, MicOff, Video, VideoOff, Crown, Hand, MoreVertical, UserPlus, Users, UserX, Edit3, Shield, Volume2, VolumeX, Copy, Check } from "lucide-react"
+import { X, Mic, MicOff, Video, VideoOff, Crown, Hand, MoreVertical, UserPlus, Users, UserX, Edit3, Shield, Volume2, VolumeX, Copy, Check, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -21,6 +21,7 @@ interface ParticipantsPanelProps {
     onRemoveParticipant?: (participantId: string) => void
     onMakeHost?: (participantId: string) => void
     onRenameParticipant?: (participantId: string, newName: string) => void
+    onSpotlightParticipant?: (participantId: string) => void
     roomId?: string
 }
 
@@ -33,6 +34,7 @@ export default function ParticipantsPanel({
     onRemoveParticipant,
     onMakeHost,
     onRenameParticipant,
+    onSpotlightParticipant,
     roomId 
 }: ParticipantsPanelProps) {
     const [editingName, setEditingName] = useState<string | null>(null)
@@ -245,6 +247,13 @@ export default function ParticipantsPanel({
                                                             Make Host
                                                         </DropdownMenuItem>
                                                     )}
+                                                    <DropdownMenuItem
+                                                        onClick={() => onSpotlightParticipant?.(participant.id)}
+                                                        className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                    >
+                                                        <Sparkles className="w-4 h-4 mr-2" />
+                                                        Spotlight
+                                                    </DropdownMenuItem>
                                                     <DropdownMenuSeparator className="bg-gray-700" />
                                                     <DropdownMenuItem
                                                         onClick={() => setRemoveDialog(participant.id)}
