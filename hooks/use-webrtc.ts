@@ -112,19 +112,55 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   // Initialize local media stream
   const initializeLocalStream = useCallback(async () => {
     console.log("Attempting to initialize local media stream...")
+    
+    // Check if getUserMedia is supported
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const error = "Your browser doesn't support camera/microphone access. Please use a modern browser."
+      console.error(error)
+      setError(error)
+      throw new Error(error)
+    }
+    
+    // Check if we're on HTTPS (required for mobile Safari)
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost'
+    if (!isSecure) {
+      console.warn("⚠️ Not on HTTPS - mobile devices may block camera/microphone access")
+    }
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 720 },
-          height: { ideal: 1280 },
-          frameRate: { ideal: 30 },
+      // Mobile-friendly constraints with fallback
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      
+      const constraints = {
+        video: isMobile ? {
+          facingMode: "user",
+          width: { min: 320, ideal: 640, max: 1280 },
+          height: { min: 240, ideal: 480, max: 720 },
+        } : {
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 60 },
         },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
         },
-      })
+      }
+      
+      console.log(`Device type: ${isMobile ? 'Mobile' : 'Desktop'}, using constraints:`, constraints)
+      
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+      } catch (firstError) {
+        console.warn("First attempt failed, trying with basic constraints:", firstError)
+        // Fallback to most basic constraints for problematic devices
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        })
+      }
       console.log("Local media stream acquired successfully:", stream)
       console.log("Stream ID:", stream.id, "Active:", stream.active)
 
@@ -191,17 +227,26 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       console.error("Error accessing media devices:", err)
       if (err instanceof DOMException) {
         if (err.name === "NotAllowedError") {
-          setError("Permission denied: Please allow camera and microphone access.")
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+          const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost'
+          
+          let errorMsg = "Permission denied: Please allow camera and microphone access."
+          if (isMobile && !isSecure) {
+            errorMsg += " Note: Mobile browsers require HTTPS for camera/microphone access."
+          }
+          setError(errorMsg)
           localStorage.removeItem("media-permissions-granted")
         } else if (err.name === "NotFoundError") {
-          setError("No camera or microphone found.")
+          setError("No camera or microphone found. Please check your device.")
         } else if (err.name === "NotReadableError") {
-          setError("Camera/microphone is in use by another application.")
+          setError("Camera/microphone is in use by another application. Please close other apps and try again.")
+        } else if (err.name === "OverconstrainedError") {
+          setError("Your device doesn't support the required video quality. Please try a different device.")
         } else {
           setError(`Media device error: ${err.message}`)
         }
       } else {
-        setError("Failed to access camera/microphone. Please check permissions.")
+        setError("Failed to access camera/microphone. Please check permissions and try again.")
       }
       throw err
     }
@@ -391,14 +436,17 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     (roomId: string, userName: string, stream: MediaStream, userId?: string) => {
       const socket = io(SIGNALING_SERVER_URL, {
         reconnection: true,
-        reconnectionAttempts: 3,
+        reconnectionAttempts: 5, // Increased for mobile
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        timeout: 10000,
+        timeout: 20000, // Increased to 20s for mobile networks
         transports: ["websocket", "polling"],
         upgrade: true,
         forceNew: true,
         autoConnect: true,
+        // Mobile-friendly settings
+        path: "/socket.io/",
+        withCredentials: true,
       })
 
       socket.on("connect", () => {
@@ -417,14 +465,18 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         peerConnections.current.clear()
         console.log("[Socket] Cleared all participants and peer connections")
         
-        // Join room with timeout
+        // Join room with extended timeout for mobile
         const joinTimeout = setTimeout(() => {
-          setError("Join room timeout. Retrying...")
-          socket.emit("join-room", { roomId, userName })
-        }, 5000)
+          console.warn("[Socket] Join room timeout - retrying...")
+          setError("Connection slow. Retrying...")
+          socket.emit("join-room", { roomId, userName, userId })
+        }, 10000) // Increased to 10s for mobile
         
         socket.emit("join-room", { roomId, userName, userId })
-        socket.once("current-participants", () => clearTimeout(joinTimeout))
+        socket.once("current-participants", () => {
+          clearTimeout(joinTimeout)
+          console.log("[Socket] Successfully joined room")
+        })
         startPinging()
       })
 
