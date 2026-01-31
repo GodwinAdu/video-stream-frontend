@@ -113,6 +113,7 @@ const ParticipantGrid = ({
     viewMode,
     pinnedParticipant,
     setPinnedParticipant,
+    screenSharingParticipantId,
 }: {
     participants: Participant[]
     currentPage: number
@@ -122,6 +123,7 @@ const ParticipantGrid = ({
     viewMode: "gallery" | "speaker" | "focus"
     pinnedParticipant: string | null
     setPinnedParticipant?: (id: string | null) => void
+    screenSharingParticipantId: string | null
 }) => {
     // Sort participants by speaking only in gallery view
     // In focus/speaker mode, maintain original order to keep spotlight stable
@@ -141,9 +143,13 @@ const ParticipantGrid = ({
     const count = currentParticipants.length
 
     // Speaker view: show active speaker large with others in sidebar
+    // Prioritize screen sharer over audio speaker
     if (viewMode === "speaker") {
         const activeSpeaker = Array.from(speakingParticipants)[0]
-        const mainParticipant = participants.find(p => p.id === activeSpeaker) || participants[0]
+        // If someone is screen sharing, show them instead of the speaker
+        const mainParticipant = screenSharingParticipantId
+            ? participants.find(p => p.id === screenSharingParticipantId)
+            : participants.find(p => p.id === activeSpeaker) || participants[0]
         const sidebarParticipants = participants.filter(p => p.id !== mainParticipant?.id).slice(0, 4)
 
         return (
@@ -582,6 +588,7 @@ export default function WebRTCVideoCall() {
     const localVideoRef = useRef<HTMLVideoElement>(null)
     const remoteVideoRefs = useRef(new Map<string, HTMLVideoElement>())
     const toolbarTimeoutRef = useRef<NodeJS.Timeout | undefined>(null)
+    const lastSpotlightIdRef = useRef<string | null>(null)
 
     // Picture-in-Picture
     const { isPiPActive, isPiPSupported, togglePiP } = usePictureInPicture(localVideoRef.current || null)
@@ -1011,25 +1018,29 @@ export default function WebRTCVideoCall() {
             setViewMode("focus")
             setPinnedParticipant(screenSharingParticipantId)
             
-            // Show toast notification only when spotlight changes
-            const sharingParticipant = allParticipants.find(p => p.id === screenSharingParticipantId)
-            const sharerName = sharingParticipant?.name || 'Someone'
-            
-            import('sonner').then(({ toast }) => {
-                toast.info(`${sharerName} is presenting`, {
-                    duration: 3000,
-                    icon: '🖥️',
+            // Show toast notification only when spotlight ID changes (not on every participant update)
+            if (lastSpotlightIdRef.current !== screenSharingParticipantId) {
+                lastSpotlightIdRef.current = screenSharingParticipantId
+                const sharingParticipant = allParticipants.find(p => p.id === screenSharingParticipantId)
+                const sharerName = sharingParticipant?.name || 'Someone'
+                
+                import('sonner').then(({ toast }) => {
+                    toast.info(`${sharerName} is presenting`, {
+                        duration: 3000,
+                        icon: '🖥️',
+                    })
                 })
-            })
+            }
         } else {
             // Spotlight removed - return to gallery view only if we're in focus mode
             if (viewMode === "focus" && pinnedParticipant) {
                 console.log('Spotlight removed, returning to gallery view')
                 setViewMode("gallery")
                 setPinnedParticipant(null)
+                lastSpotlightIdRef.current = null
             }
         }
-    }, [screenSharingParticipantId, allParticipants])
+    }, [screenSharingParticipantId, viewMode, pinnedParticipant])
 
 
 
@@ -1209,6 +1220,7 @@ export default function WebRTCVideoCall() {
                             viewMode={viewMode}
                             pinnedParticipant={pinnedParticipant}
                             setPinnedParticipant={setPinnedParticipant}
+                            screenSharingParticipantId={screenSharingParticipantId}
                         />
 
                     {/* Pagination Controls */}
