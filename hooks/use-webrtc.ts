@@ -41,6 +41,7 @@ export interface WebRTCState {
   isScreenSharing: boolean
   error: string | null
   localParticipantId: string | null
+  isLocalHost: boolean
   isVirtualBackgroundEnabled: boolean
   isReconnecting: boolean
   bufferedChatMessages: any[]
@@ -75,6 +76,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [localParticipantId, setLocalParticipantId] = useState<string | null>(null)
+  const [isLocalHost, setIsLocalHost] = useState(false) // Track local host status from server
   const [isVirtualBackgroundEnabled, setIsVirtualBackgroundEnabled] = useState(false)
   const [isReconnecting, setIsReconnecting] = useState(false)
   const [bufferedChatMessages, setBufferedChatMessages] = useState<any[]>([])
@@ -485,14 +487,14 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
               ...participant, 
               stream: p.stream, 
               status: "online",
-              isHost: participant.isHost || false 
+              isHost: participant.isHost // Use server's host status
             } : p)
           }
           return [...prev, { 
             ...participant, 
             stream: undefined, 
             status: "online",
-            isHost: participant.isHost || false 
+            isHost: participant.isHost // Use server's host status
           }]
         })
 
@@ -529,8 +531,15 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           ...p, 
           stream: undefined, 
           status: "online",
-          isHost: p.isHost || false // Ensure isHost is preserved
+          isHost: p.isHost // Use server's host status
         })))
+        
+        // Check if any remote participant is host, if not, we might be the host
+        const remoteHostExists = remoteParticipants.some((p: any) => p.isHost)
+        if (!remoteHostExists) {
+          setIsLocalHost(true)
+          console.log('[Socket] No remote host found, local user is host')
+        }
 
         // Don't send offers here - existing users will send offers when they receive user-joined event
         // Just create peer connections ready to receive offers
@@ -713,6 +722,9 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       socket.on("host-changed", ({ newHostId, newHostName, participants: hostUpdates }) => {
         console.log(`[Socket] Host changed to ${newHostName} (${newHostId})`)
+        // Update local host status
+        setIsLocalHost(newHostId === socket.id)
+        // Update all participants' host status based on server's authoritative data
         setParticipants((prev) =>
           prev.map((p) => ({
             ...p,
@@ -727,6 +739,19 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
             icon: '👑',
           })
         })
+      })
+
+      // New event: Host status update (for when new host joins)
+      socket.on("host-status-update", ({ hostId, hostName }) => {
+        console.log(`[Socket] Host status update: ${hostName} (${hostId}) is the host`)
+        // Update local host status
+        setIsLocalHost(hostId === socket.id)
+        setParticipants((prev) =>
+          prev.map((p) => ({
+            ...p,
+            isHost: p.id === hostId,
+          })),
+        )
       })
 
       // Host control events
@@ -887,6 +912,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     setIsScreenSharing(false)
     setError(null)
     setLocalParticipantId(null)
+    setIsLocalHost(false)
     setIsVirtualBackgroundEnabled(false)
     setIsReconnecting(false)
     setBufferedChatMessages([])
@@ -1335,6 +1361,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     isScreenSharing,
     error,
     localParticipantId,
+    isLocalHost,
     isVirtualBackgroundEnabled,
     isReconnecting,
     bufferedChatMessages,

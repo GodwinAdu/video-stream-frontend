@@ -216,7 +216,7 @@ const ParticipantGrid = ({
                             <div 
                                 key={participant.id} 
                                 className="flex-shrink-0 w-32 h-20 md:w-full md:h-auto md:aspect-[4/3] cursor-pointer"
-                                onClick={() => setPinnedParticipant(participant.id)}
+                                onClick={() => setPinnedParticipant?.(participant.id)}
                             >
                                 <ParticipantVideo 
                                     participant={participant} 
@@ -505,6 +505,7 @@ export default function WebRTCVideoCall() {
         isScreenSharing,
         error,
         localParticipantId,
+        isLocalHost,
         isVirtualBackgroundEnabled,
         isReconnecting,
         bufferedChatMessages,
@@ -951,19 +952,12 @@ export default function WebRTCVideoCall() {
     }, [isConnected, participants.length])
 
     // Include local participant in the list
-    // Determine if local user is host from participants array or if they're the only one
-    const remoteHostExists = participants.some(p => p.isHost)
-    const isLocalHost = localParticipantId ? (
-        participants.find(p => p.id === localParticipantId)?.isHost || 
-        (!remoteHostExists && participants.length === 0)
-    ) : false
-    
     const localParticipant = localParticipantId
         ? {
             id: localParticipantId,
             name: "You",
             isLocal: true,
-            isHost: isLocalHost,
+            isHost: isLocalHost, // Use server-provided host status
             stream: localStream,
             isMuted,
             isVideoOff,
@@ -1005,25 +999,29 @@ export default function WebRTCVideoCall() {
         if (screenSharingParticipantId) {
             // Someone is screen sharing - switch to focus mode and pin them
             console.log(`Screen sharing detected from ${screenSharingParticipantId}, switching to spotlight`)
-            setViewMode("focus")
-            setPinnedParticipant(screenSharingParticipantId)
             
-            // Show toast notification
-            import('sonner').then(({ toast }) => {
-                const sharingParticipant = allParticipants.find(p => p.id === screenSharingParticipantId)
-                const sharerName = sharingParticipant?.name || 'Someone'
-                toast.info(`${sharerName} is presenting`, {
-                    duration: 3000,
-                    icon: '🖥️',
+            // Only update if not already pinned to this participant
+            if (pinnedParticipant !== screenSharingParticipantId) {
+                setViewMode("focus")
+                setPinnedParticipant(screenSharingParticipantId)
+                
+                // Show toast notification only when first starting
+                import('sonner').then(({ toast }) => {
+                    const sharingParticipant = allParticipants.find(p => p.id === screenSharingParticipantId)
+                    const sharerName = sharingParticipant?.name || 'Someone'
+                    toast.info(`${sharerName} is presenting`, {
+                        duration: 3000,
+                        icon: '🖥️',
+                    })
                 })
-            })
+            }
         } else if (pinnedParticipant && viewMode === "focus") {
             // Screen sharing stopped - return to gallery view
             console.log('Screen sharing stopped, returning to gallery view')
             setViewMode("gallery")
             setPinnedParticipant(null)
         }
-    }, [screenSharingParticipantId, allParticipants])
+    }, [screenSharingParticipantId])
 
 
 
