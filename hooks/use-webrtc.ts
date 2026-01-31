@@ -52,7 +52,7 @@ export interface WebRTCState {
 }
 
 export interface WebRTCActions {
-  joinRoom: (roomId: string, userName: string) => Promise<void>
+  joinRoom: (roomId: string, userName: string, userId?: string) => Promise<void>
   leaveRoom: () => void
   toggleMute: () => void
   toggleVideo: () => void
@@ -388,7 +388,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
   // Signaling setup
   const setupSignaling = useCallback(
-    (roomId: string, userName: string, stream: MediaStream) => {
+    (roomId: string, userName: string, stream: MediaStream, userId?: string) => {
       const socket = io(SIGNALING_SERVER_URL, {
         reconnection: true,
         reconnectionAttempts: 3,
@@ -403,13 +403,19 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       socket.on("connect", () => {
         console.log("[Socket] Connected:", socket.id)
-        setLocalParticipantId(socket.id)
+        setLocalParticipantId(sock.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   et.id)
         setIsConnected(true)
         setIsReconnecting(false)
         setError(null)
         
-        // Clear participants list when connecting to prevent duplicates
+        // Clear ALL state when connecting to prevent duplicates
         setParticipants([])
+        // Close all existing peer connections
+        peerConnections.current.forEach((pc) => {
+          pc.close()
+        })
+        peerConnections.current.clear()
+        console.log("[Socket] Cleared all participants and peer connections")
         
         // Join room with timeout
         const joinTimeout = setTimeout(() => {
@@ -417,7 +423,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           socket.emit("join-room", { roomId, userName })
         }, 5000)
         
-        socket.emit("join-room", { roomId, userName })
+        socket.emit("join-room", { roomId, userName, userId })
         socket.once("current-participants", () => clearTimeout(joinTimeout))
         startPinging()
       })
@@ -552,19 +558,19 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       socket.on("user-left", ({ participantId, userName: leftUserName, reason }) => {
         console.log(`[Socket] User ${leftUserName} (${participantId}) left. Reason: ${reason || 'unknown'}`)
         
-        // Immediately remove from participants
+        // Immediately remove from participants - use callback to ensure we have latest state
         setParticipants((prev) => {
           const filtered = prev.filter((p) => p.id !== participantId)
-          console.log(`[Socket] Participants after removal: ${filtered.length}`)
+          console.log(`[Socket] Participants before: ${prev.length}, after: ${filtered.length}`)
           return filtered
         })
         
-        // Close and cleanup peer connection
+        // Close and cleanup peer connection immediately
         const pc = peerConnections.current.get(participantId)
         if (pc) {
+          console.log(`[Socket] Closing peer connection for ${participantId}`)
           pc.close()
           peerConnections.current.delete(participantId)
-          console.log(`[Socket] Closed peer connection for ${participantId}`)
         }
         
         // Remove from speaking participants
@@ -573,6 +579,9 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
           newSet.delete(participantId)
           return newSet
         })
+        
+        // Clear screen sharing if this participant was sharing
+        setScreenSharingParticipantId((prev) => prev === participantId ? null : prev)
       })
 
       socket.on("offer", async ({ offer, senderId }) => {
@@ -923,7 +932,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
   // Join room
   const joinRoom = useCallback(
-    async (roomId: string, userName: string) => {
+    async (roomId: string, userName: string, userId?: string) => {
       try {
         setError(null)
         roomIdRef.current = roomId
@@ -951,9 +960,9 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
         }
 
         const stream = await initializeLocalStream()
-        setupSignaling(roomId, userName, stream)
+        setupSignaling(roomId, userName, stream, userId)
 
-        console.log(`Attempting to join room ${roomId} as ${userName}`)
+        console.log(`Attempting to join room ${roomId} as ${userName}${userId ? ` (userId: ${userId})` : ''}`)
       } catch (err: any) {
         console.error("Failed to join room:", err)
         if (!err.message?.includes('Meeting')) {

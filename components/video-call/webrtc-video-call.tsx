@@ -123,14 +123,17 @@ const ParticipantGrid = ({
     pinnedParticipant: string | null
     setPinnedParticipant?: (id: string | null) => void
 }) => {
-    // Sort participants: speaking first, then others
-    const sortedParticipants = [...participants].sort((a, b) => {
-        const aIsSpeaking = speakingParticipants.has(a.id)
-        const bIsSpeaking = speakingParticipants.has(b.id)
-        if (aIsSpeaking && !bIsSpeaking) return -1
-        if (!aIsSpeaking && bIsSpeaking) return 1
-        return 0
-    })
+    // Sort participants by speaking only in gallery view
+    // In focus/speaker mode, maintain original order to keep spotlight stable
+    const sortedParticipants = viewMode === "gallery" 
+        ? [...participants].sort((a, b) => {
+            const aIsSpeaking = speakingParticipants.has(a.id)
+            const bIsSpeaking = speakingParticipants.has(b.id)
+            if (aIsSpeaking && !bIsSpeaking) return -1
+            if (!aIsSpeaking && bIsSpeaking) return 1
+            return 0
+        })
+        : participants
     
     const startIndex = currentPage * participantsPerPage
     const endIndex = startIndex + participantsPerPage
@@ -892,7 +895,10 @@ export default function WebRTCVideoCall() {
     const handleJoinRoom = async (roomId: string, userName: string) => {
         try {
             setCurrentRoomId(roomId)
-            await joinRoom(roomId, userName)
+            // Get userId from auth if available
+            const auth = getAuth()
+            const userId = auth?.userId
+            await joinRoom(roomId, userName, userId)
             setShowJoinDialog(false)
             // Update URL without page reload
             window.history.replaceState({}, '', `${window.location.pathname}?room=${roomId}`)
@@ -994,34 +1000,34 @@ export default function WebRTCVideoCall() {
         console.log('Participants updated:', allParticipants.map(p => `${p.name} (${p.id})`).join(', '))
     }, [allParticipants])
 
-    // Automatic spotlight when screen sharing
+    // Automatic spotlight when screen sharing or host spotlight
     useEffect(() => {
         if (screenSharingParticipantId) {
-            // Someone is screen sharing - switch to focus mode and pin them
-            console.log(`Screen sharing detected from ${screenSharingParticipantId}, switching to spotlight`)
+            // Someone is screen sharing or spotlighted - switch to focus mode and pin them
+            console.log(`Spotlight detected for ${screenSharingParticipantId}, switching to focus mode`)
             
-            // Only update if not already pinned to this participant
-            if (pinnedParticipant !== screenSharingParticipantId) {
-                setViewMode("focus")
-                setPinnedParticipant(screenSharingParticipantId)
-                
-                // Show toast notification only when first starting
-                import('sonner').then(({ toast }) => {
-                    const sharingParticipant = allParticipants.find(p => p.id === screenSharingParticipantId)
-                    const sharerName = sharingParticipant?.name || 'Someone'
-                    toast.info(`${sharerName} is presenting`, {
-                        duration: 3000,
-                        icon: '🖥️',
-                    })
+            setViewMode("focus")
+            setPinnedParticipant(screenSharingParticipantId)
+            
+            // Show toast notification only when spotlight changes
+            const sharingParticipant = allParticipants.find(p => p.id === screenSharingParticipantId)
+            const sharerName = sharingParticipant?.name || 'Someone'
+            
+            import('sonner').then(({ toast }) => {
+                toast.info(`${sharerName} is presenting`, {
+                    duration: 3000,
+                    icon: '🖥️',
                 })
+            })
+        } else {
+            // Spotlight removed - return to gallery view only if we're in focus mode
+            if (viewMode === "focus" && pinnedParticipant) {
+                console.log('Spotlight removed, returning to gallery view')
+                setViewMode("gallery")
+                setPinnedParticipant(null)
             }
-        } else if (pinnedParticipant && viewMode === "focus") {
-            // Screen sharing stopped - return to gallery view
-            console.log('Screen sharing stopped, returning to gallery view')
-            setViewMode("gallery")
-            setPinnedParticipant(null)
         }
-    }, [screenSharingParticipantId])
+    }, [screenSharingParticipantId, allParticipants])
 
 
 
