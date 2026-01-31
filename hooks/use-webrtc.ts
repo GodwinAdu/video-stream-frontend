@@ -608,12 +608,14 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       })
 
       socket.on("user-left", ({ participantId, userName: leftUserName, reason }) => {
-        console.log(`[Socket] User ${leftUserName} (${participantId}) left. Reason: ${reason || 'unknown'}`)
+        console.log(`[Socket] ⚠️ USER LEFT EVENT RECEIVED: ${leftUserName} (${participantId}), Reason: ${reason || 'unknown'}`)
+        console.log(`[Socket] Current participants before removal:`, participants.map(p => `${p.name}(${p.id})`).join(', '))
         
         // Immediately remove from participants - use callback to ensure we have latest state
         setParticipants((prev) => {
           const filtered = prev.filter((p) => p.id !== participantId)
-          console.log(`[Socket] Participants before: ${prev.length}, after: ${filtered.length}`)
+          console.log(`[Socket] ✅ Participants before: ${prev.length}, after: ${filtered.length}`)
+          console.log(`[Socket] Removed IDs:`, prev.filter(p => p.id === participantId).map(p => p.id))
           return filtered
         })
         
