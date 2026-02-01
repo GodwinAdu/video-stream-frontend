@@ -777,10 +777,29 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
 
       socket.on("force-disconnect", (data) => {
         console.log("[Socket] Force disconnect:", data.message)
-        setError(`Connection closed: ${data.message}`)
+        setError(`You were removed from the meeting: ${data.message}`)
         // Don't auto-reconnect on force disconnect
         socket.disconnect()
-        leaveRoom()
+        
+        // Clean up and prepare for rejoin
+        peerConnections.current.forEach((pc) => pc.close())
+        peerConnections.current.clear()
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach((track) => track.stop())
+        }
+        setLocalStream(null)
+        setParticipants([])
+        setIsConnected(false)
+        setLocalParticipantId(null)
+        setIsLocalHost(false)
+        
+        // Show toast notification
+        import('sonner').then(({ toast }) => {
+          toast.error(data.message || 'You were removed from the meeting', {
+            duration: 5000,
+            description: 'You can rejoin if the host allows',
+          })
+        })
       })
 
       socket.on("host-changed", ({ newHostId, newHostName, participants: hostUpdates }) => {
