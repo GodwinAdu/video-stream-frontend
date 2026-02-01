@@ -379,7 +379,7 @@ const ParticipantVideo = ({
                     : "ring-1 ring-gray-700/50 hover:ring-2 hover:ring-gray-600/50"
             }`}
         >
-            {participant.stream && participant.stream.active && !participant.isVideoOff && !hasVideoError ? (
+            {participant.stream && participant.stream.active && (!participant.isVideoOff || isScreenShare) && !hasVideoError ? (
                 <>
                     <video
                         ref={videoRef}
@@ -396,7 +396,10 @@ const ParticipantVideo = ({
                     />
                     {isVideoLoading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                            <div className="text-center space-y-2">
+                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto"></div>
+                                <p className="text-sm text-slate-300">Loading video...</p>
+                            </div>
                         </div>
                     )}
                 </>
@@ -404,8 +407,8 @@ const ParticipantVideo = ({
                 <div className="w-full h-full flex items-center justify-center bg-slate-900">
                     <div className="flex flex-col items-center justify-center gap-3">
                         {/* Google Meet style avatar */}
-                        <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 bg-slate-700 rounded-full flex items-center justify-center">
-                            <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium text-white">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bg-slate-700 rounded-full flex items-center justify-center ring-4 ring-slate-600/30">
+                            <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-slate-200">
                                 {participant.name
                                     .split(" ")
                                     .map((n) => n[0])
@@ -414,9 +417,25 @@ const ParticipantVideo = ({
                         </div>
                         
                         {/* Name */}
-                        <p className="text-white font-normal text-sm sm:text-base md:text-lg text-center px-4 max-w-full truncate">
+                        <p className="text-slate-300 font-medium text-sm sm:text-base md:text-lg text-center px-4 max-w-full truncate">
                             {participant.name}
                         </p>
+                        
+                        {/* Camera off indicator */}
+                        {participant.isVideoOff && (
+                            <div className="flex items-center space-x-2 bg-slate-800/80 rounded-full px-3 py-1.5">
+                                <VideoOff className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-xs text-slate-400">Camera is off</span>
+                            </div>
+                        )}
+                        
+                        {/* Muted indicator when video is off */}
+                        {participant.isMuted && (
+                            <div className="flex items-center space-x-2 bg-slate-800/80 rounded-full px-3 py-1.5">
+                                <MicOff className="w-3.5 h-3.5 text-red-400" />
+                                <span className="text-xs text-slate-400">Microphone is off</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
