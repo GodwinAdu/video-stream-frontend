@@ -53,7 +53,7 @@ export default function SimplifiedToolbar({
     isFullscreen
 }: ToolbarProps) {
     return (
-        <div className="flex items-center justify-center space-x-2 sm:space-x-3">
+        <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 md:space-x-3 overflow-x-auto max-w-full px-2">
             {/* Primary Controls */}
             <Tooltip>
                 <TooltipTrigger asChild>
@@ -61,10 +61,10 @@ export default function SimplifiedToolbar({
                         variant={isMuted ? "destructive" : "secondary"}
                         size="sm"
                         onClick={onToggleMute}
-                        className="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-lg hover:scale-105 transition-transform"
+                        className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg hover:scale-105 transition-transform flex-shrink-0"
                         disabled={!localStream}
                     >
-                        {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                        {isMuted ? <MicOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>{isMuted ? "Unmute" : "Mute"}</p></TooltipContent>
@@ -76,31 +76,32 @@ export default function SimplifiedToolbar({
                         variant={isVideoOff ? "destructive" : "secondary"}
                         size="sm"
                         onClick={onToggleVideo}
-                        className="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-lg hover:scale-105 transition-transform"
+                        className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg hover:scale-105 transition-transform flex-shrink-0"
                         disabled={!localStream}
                     >
-                        {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                        {isVideoOff ? <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Video className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>{isVideoOff ? "Turn on camera" : "Turn off camera"}</p></TooltipContent>
             </Tooltip>
 
+            {/* Screen Share - Hidden on small mobile */}
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
                         variant={isScreenSharing ? "default" : "secondary"}
                         size="sm"
                         onClick={onToggleScreenShare}
-                        className="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-lg hover:scale-105 transition-transform"
+                        className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg hover:scale-105 transition-transform flex-shrink-0 hidden xs:flex"
                         disabled={!isConnected || !localStream}
                     >
-                        <Monitor className="w-5 h-5" />
+                        <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>{isScreenSharing ? "Stop sharing" : "Share screen"}</p></TooltipContent>
             </Tooltip>
 
-            {/* Reactions */}
+            {/* Reactions - Hidden on mobile */}
             <Popover>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -108,10 +109,10 @@ export default function SimplifiedToolbar({
                             <Button
                                 variant="secondary"
                                 size="sm"
-                                className="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-lg"
+                                className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg flex-shrink-0 hidden sm:flex"
                                 disabled={!isConnected}
                             >
-                                <Smile className="w-5 h-5" />
+                                <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
                             </Button>
                         </PopoverTrigger>
                     </TooltipTrigger>
@@ -134,14 +135,14 @@ export default function SimplifiedToolbar({
                 </PopoverContent>
             </Popover>
 
-            {/* Activities Dropdown - Host Only */}
+            {/* Activities Dropdown - Host Only - Hidden on mobile */}
             {isHost && (
                 <Popover>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <PopoverTrigger asChild>
-                                <Button variant="secondary" size="sm" className="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-lg">
-                                    <Sparkles className="w-5 h-5" />
+                                <Button variant="secondary" size="sm" className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg flex-shrink-0 hidden md:flex">
+                                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </Button>
                             </PopoverTrigger>
                         </TooltipTrigger>
@@ -169,13 +170,13 @@ export default function SimplifiedToolbar({
                 </Popover>
             )}
 
-            {/* Collaboration Tools - All Participants */}
+            {/* Collaboration Tools - Hidden on mobile */}
             <Popover>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <PopoverTrigger asChild>
-                            <Button variant="secondary" size="sm" className="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-lg">
-                                <Sparkles className="w-5 h-5" />
+                            <Button variant="secondary" size="sm" className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg flex-shrink-0 hidden lg:flex">
+                                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
                             </Button>
                         </PopoverTrigger>
                     </TooltipTrigger>
@@ -209,8 +210,8 @@ export default function SimplifiedToolbar({
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <PopoverTrigger asChild>
-                            <Button variant="secondary" size="sm" className="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-lg">
-                                <MoreVertical className="w-5 h-5" />
+                            <Button variant="secondary" size="sm" className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg flex-shrink-0">
+                                <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
                             </Button>
                         </PopoverTrigger>
                     </TooltipTrigger>
@@ -218,6 +219,13 @@ export default function SimplifiedToolbar({
                 </Tooltip>
                 <PopoverContent className="w-64 p-2 bg-gray-900 border-gray-700 rounded-xl" align="end">
                     <div className="space-y-1">
+                        {/* Mobile-only options */}
+                        <Button variant="ghost" className="w-full justify-start text-sm sm:hidden" onClick={onToggleScreenShare} disabled={!isConnected || !localStream}>
+                            <Monitor className="w-4 h-4 mr-3" />{isScreenSharing ? "Stop Sharing" : "Share Screen"}
+                        </Button>
+                        <Button variant="ghost" className="w-full justify-start text-sm sm:hidden" onClick={() => onSendReaction('👍')} disabled={!isConnected}>
+                            <Smile className="w-4 h-4 mr-3" />Send Reaction
+                        </Button>
                         <Button variant="ghost" className="w-full justify-start text-sm" onClick={onShowSettings}>
                             <Settings className="w-4 h-4 mr-3" />Settings
                         </Button>
@@ -262,9 +270,9 @@ export default function SimplifiedToolbar({
                         variant={showChat ? "default" : "secondary"}
                         size="sm"
                         onClick={onToggleChat}
-                        className="h-11 w-11 sm:h-12 sm:w-12 relative rounded-full shadow-lg"
+                        className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 relative rounded-full shadow-lg flex-shrink-0"
                     >
-                        <MessageSquare className="w-5 h-5" />
+                        <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
                         {unreadMessages > 0 && (
                             <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
                                 {unreadMessages > 9 ? '9+' : unreadMessages}
@@ -282,9 +290,9 @@ export default function SimplifiedToolbar({
                         variant={showParticipants ? "default" : "secondary"}
                         size="sm"
                         onClick={onToggleParticipants}
-                        className="h-11 w-11 sm:h-12 sm:w-12 relative rounded-full shadow-lg"
+                        className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 relative rounded-full shadow-lg flex-shrink-0"
                     >
-                        <Users className="w-5 h-5" />
+                        <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                         {participantsCount > 0 && (
                             <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                                 {participantsCount > 9 ? '9+' : participantsCount}
@@ -301,10 +309,10 @@ export default function SimplifiedToolbar({
                     <Button
                         variant="destructive"
                         size="sm"
-                        className="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-lg bg-red-600 hover:bg-red-700"
+                        className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg bg-red-600 hover:bg-red-700 flex-shrink-0"
                         onClick={onLeaveCall}
                     >
-                        <Phone className="w-5 h-5 rotate-[135deg]" />
+                        <Phone className="w-4 h-4 sm:w-5 sm:h-5 rotate-[135deg]" />
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>Leave call</p></TooltipContent>
