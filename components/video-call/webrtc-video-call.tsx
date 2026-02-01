@@ -938,7 +938,8 @@ export default function WebRTCVideoCall() {
     
     // Handle force disconnect - redirect to join screen
     useEffect(() => {
-        if (!isConnected && !isReconnecting && localParticipantId === null && error?.includes('removed')) {
+        if (error?.includes('removed')) {
+            console.log('User was removed, redirecting to join screen...')
             // User was removed, show join dialog after a short delay
             const timer = setTimeout(() => {
                 setShowJoinDialog(true)
@@ -946,7 +947,7 @@ export default function WebRTCVideoCall() {
             }, 2000)
             return () => clearTimeout(timer)
         }
-    }, [isConnected, isReconnecting, localParticipantId, error])
+    }, [error])
 
     const isMuted = localStream ? !localStream.getAudioTracks()[0]?.enabled : false
     const isVideoOff = localStream ? !localStream.getVideoTracks()[0]?.enabled : false
