@@ -63,16 +63,16 @@ export default function ParticipantsPanel({
     }
     
     return (
-        <div className="h-full flex flex-col bg-gray-900/95 backdrop-blur-xl rounded-2xl overflow-hidden">
+        <div className="h-full flex flex-col bg-slate-900/95 backdrop-blur-xl rounded-2xl overflow-hidden">
             {/* Modern Header */}
-            <div className="flex items-center justify-between p-4 sm:p-6 bg-gradient-to-r from-green-600/10 to-blue-600/10 border-b border-gray-700/50">
+            <div className="flex items-center justify-between p-4 sm:p-6 bg-gradient-to-r from-green-600/10 to-blue-600/10 border-b border-slate-700/50">
                 <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl flex items-center justify-center">
                         <Users className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-gray-50 text-lg">Participants</h3>
-                        <p className="text-xs text-gray-400">
+                        <h3 className="font-semibold text-slate-50 text-lg">Participants</h3>
+                        <p className="text-xs text-slate-400">
                             {participants.length} {participants.length === 1 ? "person" : "people"} in meeting
                         </p>
                     </div>
@@ -82,7 +82,7 @@ export default function ParticipantsPanel({
                         variant="ghost"
                         size="sm"
                         onClick={() => setInviteDialog(true)}
-                        className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-800/50 rounded-xl"
+                        className="h-9 w-9 p-0 text-slate-400 hover:text-slate-50 hover:bg-slate-800/50 rounded-xl"
                     >
                         <UserPlus className="w-4 h-4" />
                     </Button>
@@ -90,7 +90,7 @@ export default function ParticipantsPanel({
                         variant="ghost"
                         size="sm"
                         onClick={onClose}
-                        className="h-9 w-9 p-0 text-gray-400 hover:text-gray-50 hover:bg-gray-800/50 rounded-xl"
+                        className="h-9 w-9 p-0 text-slate-400 hover:text-slate-50 hover:bg-slate-800/50 rounded-xl"
                     >
                         <X className="w-5 h-5" />
                     </Button>
@@ -102,21 +102,21 @@ export default function ParticipantsPanel({
                 <div className="p-4 sm:p-6 space-y-3">
                     {participants.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center">
-                            <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
-                                <Users className="w-8 h-8 text-gray-500" />
+                            <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4">
+                                <Users className="w-8 h-8 text-slate-500" />
                             </div>
-                            <h4 className="text-gray-300 font-medium mb-2">No participants yet</h4>
-                            <p className="text-gray-500 text-sm">Invite people to join the meeting</p>
+                            <h4 className="text-slate-300 font-medium mb-2">No participants yet</h4>
+                            <p className="text-slate-500 text-sm">Invite people to join the meeting</p>
                         </div>
                     ) : (
                         participants.map((participant) => (
                             <div
                                 key={participant.id}
-                                className="group flex items-center justify-between p-4 rounded-xl bg-gray-800/30 hover:bg-gray-800/60 transition-all duration-200 border border-gray-700/30 hover:border-gray-600/50 backdrop-blur-sm"
+                                className="group flex items-center justify-between p-4 rounded-xl bg-slate-800/30 hover:bg-slate-800/60 transition-all duration-200 border border-slate-700/30 hover:border-slate-600/50 backdrop-blur-sm"
                             >
                                 <div className="flex items-center space-x-4 flex-1">
                                     <div className="relative">
-                                        <Avatar className="w-12 h-12 border-2 border-gray-600 group-hover:border-gray-500 transition-colors">
+                                        <Avatar className="w-12 h-12 border-2 border-slate-600 group-hover:border-slate-500 transition-colors">
                                             <AvatarImage src={participant.avatar || "/placeholder.svg?height=48&width=48"} />
                                             <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
                                                 {participant.name
@@ -126,12 +126,12 @@ export default function ParticipantsPanel({
                                             </AvatarFallback>
                                         </Avatar>
                                         {participant.isRaiseHand && (
-                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center border-2 border-gray-900 animate-pulse">
+                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center border-2 border-slate-900 animate-pulse">
                                                 <Hand className="w-3 h-3 text-white" />
                                             </div>
                                         )}
                                         <div
-                                            className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-900 ${participant.status === "online" ? "bg-green-500" : "bg-gray-500"
+                                            className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900 ${participant.status === "online" ? "bg-green-500" : "bg-slate-500"
                                                 }`}
                                         />
                                     </div>
@@ -144,11 +144,11 @@ export default function ParticipantsPanel({
                                                     onChange={(e) => setNewName(e.target.value)}
                                                     onKeyPress={(e) => e.key === 'Enter' && handleRename(participant.id)}
                                                     onBlur={() => handleRename(participant.id)}
-                                                    className="h-6 text-sm bg-gray-700 border-gray-600"
+                                                    className="h-6 text-sm bg-slate-700 border-slate-600"
                                                     autoFocus
                                                 />
                                             ) : (
-                                                <span className="text-sm font-semibold text-gray-50 truncate">{participant.name}</span>
+                                                <span className="text-sm font-semibold text-slate-50 truncate">{participant.name}</span>
                                             )}
                                             {participant.isHost && (
                                                 <Badge
@@ -160,7 +160,7 @@ export default function ParticipantsPanel({
                                                 </Badge>
                                             )}
                                             {participant.id === localParticipantId && (
-                                                <Badge variant="outline" className="text-xs px-2 py-0.5 border-gray-600 text-gray-400">
+                                                <Badge variant="outline" className="text-xs px-2 py-0.5 border-slate-600 text-slate-400">
                                                     You
                                                 </Badge>
                                             )}
@@ -179,7 +179,7 @@ export default function ParticipantsPanel({
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="w-1 h-1 bg-gray-600 rounded-full" />
+                                            <div className="w-1 h-1 bg-slate-600 rounded-full" />
                                             <div className="flex items-center space-x-1">
                                                 {participant.isVideoOff ? (
                                                     <div className="flex items-center space-x-1 text-red-400">
@@ -204,36 +204,36 @@ export default function ParticipantsPanel({
                                             <Button
                                                 variant="secondary"
                                                 size="sm"
-                                                className="h-9 w-9 p-0 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-xl"
+                                                className="h-9 w-9 p-0 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-xl"
                                             >
                                                 <MoreVertical className="w-4 h-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-56 bg-gray-800 border-gray-700">
+                                        <DropdownMenuContent align="end" className="w-56 bg-slate-800 border-slate-700">
                                             {/* Host Controls */}
                                             {isHost && participant.id !== localParticipantId && (
                                                 <>
                                                     <DropdownMenuItem
                                                         onClick={() => onMuteParticipant?.(participant.id, !participant.isMuted)}
-                                                        className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                        className="text-slate-300 hover:bg-slate-700 cursor-pointer"
                                                     >
                                                         {participant.isMuted ? <Mic className="w-4 h-4 mr-2" /> : <MicOff className="w-4 h-4 mr-2" />}
                                                         {participant.isMuted ? 'Unmute' : 'Mute'}
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
                                                         onClick={() => onToggleParticipantVideo?.(participant.id, !participant.isVideoOff)}
-                                                        className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                        className="text-slate-300 hover:bg-slate-700 cursor-pointer"
                                                     >
                                                         {participant.isVideoOff ? <Video className="w-4 h-4 mr-2" /> : <VideoOff className="w-4 h-4 mr-2" />}
                                                         {participant.isVideoOff ? 'Turn On Video' : 'Turn Off Video'}
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuSeparator className="bg-gray-700" />
+                                                    <DropdownMenuSeparator className="bg-slate-700" />
                                                     <DropdownMenuItem
                                                         onClick={() => {
                                                             setEditingName(participant.id)
                                                             setNewName(participant.name)
                                                         }}
-                                                        className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                        className="text-slate-300 hover:bg-slate-700 cursor-pointer"
                                                     >
                                                         <Edit3 className="w-4 h-4 mr-2" />
                                                         Rename
@@ -241,7 +241,7 @@ export default function ParticipantsPanel({
                                                     {!participant.isHost && (
                                                         <DropdownMenuItem
                                                             onClick={() => onMakeHost?.(participant.id)}
-                                                            className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                            className="text-slate-300 hover:bg-slate-700 cursor-pointer"
                                                         >
                                                             <Crown className="w-4 h-4 mr-2" />
                                                             Make Host
@@ -249,12 +249,12 @@ export default function ParticipantsPanel({
                                                     )}
                                                     <DropdownMenuItem
                                                         onClick={() => onSpotlightParticipant?.(participant.id)}
-                                                        className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                        className="text-slate-300 hover:bg-slate-700 cursor-pointer"
                                                     >
                                                         <Sparkles className="w-4 h-4 mr-2" />
                                                         Spotlight
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuSeparator className="bg-gray-700" />
+                                                    <DropdownMenuSeparator className="bg-slate-700" />
                                                     <DropdownMenuItem
                                                         onClick={() => setRemoveDialog(participant.id)}
                                                         className="text-red-400 hover:bg-red-900/20 cursor-pointer"
@@ -272,7 +272,7 @@ export default function ParticipantsPanel({
                                                         setEditingName(participant.id)
                                                         setNewName(participant.name)
                                                     }}
-                                                    className="text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                                    className="text-slate-300 hover:bg-slate-700 cursor-pointer"
                                                 >
                                                     <Edit3 className="w-4 h-4 mr-2" />
                                                     Rename
@@ -288,7 +288,7 @@ export default function ParticipantsPanel({
             </ScrollArea>
 
             {/* Modern Footer */}
-            <div className="p-4 sm:p-6 border-t border-gray-700/50 bg-gray-800/30">
+            <div className="p-4 sm:p-6 border-t border-slate-700/50 bg-slate-800/30">
                 <div className="space-y-3">
                     <Button 
                         onClick={() => setInviteDialog(true)}
@@ -297,7 +297,7 @@ export default function ParticipantsPanel({
                         <UserPlus className="w-4 h-4 mr-2" />
                         Invite People
                     </Button>
-                    <div className="flex items-center justify-center space-x-4 text-xs text-gray-500">
+                    <div className="flex items-center justify-center space-x-4 text-xs text-slate-500">
                         <div className="flex items-center space-x-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full" />
                             <span>Online</span>
@@ -316,34 +316,34 @@ export default function ParticipantsPanel({
             
             {/* Invite Dialog */}
             <Dialog open={inviteDialog} onOpenChange={setInviteDialog}>
-                <DialogContent className="bg-gray-900 border-gray-700">
+                <DialogContent className="bg-slate-900 border-slate-700">
                     <DialogHeader>
-                        <DialogTitle className="text-gray-50">Invite People</DialogTitle>
+                        <DialogTitle className="text-slate-50">Invite People</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="text-sm text-gray-300 mb-2 block">Room ID</label>
+                            <label className="text-sm text-slate-300 mb-2 block">Room ID</label>
                             <div className="flex space-x-2">
                                 <Input
                                     value={roomId || ''}
                                     readOnly
-                                    className="bg-gray-800 border-gray-600 text-gray-50"
+                                    className="bg-slate-800 border-slate-600 text-slate-50"
                                 />
                                 <Button
                                     onClick={copyInviteLink}
                                     variant="outline"
-                                    className="border-gray-600"
+                                    className="border-slate-600"
                                 >
                                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                 </Button>
                             </div>
                         </div>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-sm text-slate-400">
                             Share this Room ID with others to invite them to the meeting.
                         </p>
                     </div>
                     <DialogFooter>
-                        <Button onClick={() => setInviteDialog(false)} variant="outline" className="border-gray-600">
+                        <Button onClick={() => setInviteDialog(false)} variant="outline" className="border-slate-600">
                             Close
                         </Button>
                     </DialogFooter>
@@ -352,15 +352,15 @@ export default function ParticipantsPanel({
             
             {/* Remove Confirmation Dialog */}
             <AlertDialog open={!!removeDialog} onOpenChange={() => setRemoveDialog(null)}>
-                <AlertDialogContent className="bg-gray-900 border-gray-700">
+                <AlertDialogContent className="bg-slate-900 border-slate-700">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="text-gray-50">Remove Participant</AlertDialogTitle>
-                        <AlertDialogDescription className="text-gray-400">
+                        <AlertDialogTitle className="text-slate-50">Remove Participant</AlertDialogTitle>
+                        <AlertDialogDescription className="text-slate-400">
                             Are you sure you want to remove this participant from the meeting? They will be disconnected immediately.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="border-gray-600 text-gray-300">Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-slate-600 text-slate-300">Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={() => {
                                 if (removeDialog) {

@@ -187,7 +187,7 @@ export function VideoParticipant({ participant, isLocal = false, className }: Vi
                             <Mic className="w-4 h-4 text-green-500" />
                         )
                     ) : (
-                        <MicOff className="w-4 h-4 text-gray-500" />
+                        <MicOff className="w-4 h-4 text-slate-500" />
                     )}
 
                     {/* Video Status */}
@@ -198,7 +198,7 @@ export function VideoParticipant({ participant, isLocal = false, className }: Vi
                             <Video className="w-4 h-4 text-green-500" />
                         )
                     ) : (
-                        <VideoOff className="w-4 h-4 text-gray-500" />
+                        <VideoOff className="w-4 h-4 text-slate-500" />
                     )}
 
                     {/* Raised Hand */}

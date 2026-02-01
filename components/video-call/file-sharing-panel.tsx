@@ -157,7 +157,7 @@ export default function FileSharingPanel({
         if (type.startsWith("audio/")) return <FileAudio className="w-5 h-5 text-green-400" />
         if (type.includes("pdf") || type.includes("document")) return <FileText className="w-5 h-5 text-red-400" />
         if (type.includes("zip") || type.includes("rar")) return <Archive className="w-5 h-5 text-yellow-400" />
-        return <File className="w-5 h-5 text-gray-400" />
+        return <File className="w-5 h-5 text-slate-400" />
     }
 
     const getUploaderName = (uploaderId: string) => {
@@ -166,9 +166,9 @@ export default function FileSharingPanel({
     }
 
     return (
-        <div className="h-full flex flex-col bg-gray-900 text-gray-50">
+        <div className="h-full flex flex-col bg-slate-900 text-slate-50">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
                 <div className="flex items-center space-x-2">
                     <Upload className="w-5 h-5 text-blue-400" />
                     <h2 className="text-lg font-semibold">File Sharing</h2>
@@ -179,17 +179,17 @@ export default function FileSharingPanel({
             </div>
 
             {/* Upload Area */}
-            <div className="p-4 border-b border-gray-700">
+            <div className="p-4 border-b border-slate-700">
                 <div
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                        isDragging ? "border-blue-400 bg-blue-400/10" : "border-gray-700 hover:border-gray-600"
+                        isDragging ? "border-blue-400 bg-blue-400/10" : "border-slate-700 hover:border-slate-600"
                     }`}
                 >
-                    <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-400 mb-2">Drag and drop files here</p>
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                    <p className="text-sm text-slate-400 mb-2">Drag and drop files here</p>
                     <Button
                         variant="outline"
                         size="sm"
@@ -222,7 +222,7 @@ export default function FileSharingPanel({
             <ScrollArea className="flex-1">
                 <div className="p-4 space-y-2">
                     {files.length === 0 ? (
-                        <div className="text-center py-12 text-gray-500">
+                        <div className="text-center py-12 text-slate-500">
                             <File className="w-12 h-12 mx-auto mb-4 opacity-50" />
                             <p>No files shared yet</p>
                             <p className="text-sm mt-2">Upload files to share with participants</p>
@@ -231,13 +231,13 @@ export default function FileSharingPanel({
                         files.map(file => (
                             <div
                                 key={file.id}
-                                className="bg-gray-800 rounded-lg p-3 flex items-center justify-between hover:bg-gray-750 transition-colors"
+                                className="bg-slate-800 rounded-lg p-3 flex items-center justify-between hover:bg-slate-750 transition-colors"
                             >
                                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                                     {getFileIcon(file.type)}
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium truncate">{file.name}</p>
-                                        <div className="flex items-center space-x-2 text-xs text-gray-400">
+                                        <div className="flex items-center space-x-2 text-xs text-slate-400">
                                             <span>{formatFileSize(file.size)}</span>
                                             <span>•</span>
                                             <span>{getUploaderName(file.uploadedBy)}</span>
@@ -271,8 +271,8 @@ export default function FileSharingPanel({
             </ScrollArea>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-700">
-                <p className="text-xs text-gray-500 text-center">
+            <div className="p-4 border-t border-slate-700">
+                <p className="text-xs text-slate-500 text-center">
                     {files.length} file{files.length !== 1 ? "s" : ""} shared • Max 10MB per file
                 </p>
             </div>

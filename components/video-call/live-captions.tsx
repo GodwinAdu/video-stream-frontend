@@ -115,7 +115,7 @@ export default function LiveCaptions({ isEnabled, onToggle, localParticipantName
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                         <Subtitles className="w-4 h-4 text-blue-400" />
-                        <span className="text-xs text-gray-300">Live Captions</span>
+                        <span className="text-xs text-slate-300">Live Captions</span>
                     </div>
                     <Button variant="ghost" size="sm" onClick={onToggle} className="h-6 w-6 p-0">
                         <X className="w-3 h-3" />

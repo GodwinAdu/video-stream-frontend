@@ -85,14 +85,14 @@ export default function SimplifiedToolbar({
                 <TooltipContent><p>{isVideoOff ? "Turn on camera" : "Turn off camera"}</p></TooltipContent>
             </Tooltip>
 
-            {/* Screen Share - Hidden on small mobile */}
+            {/* Screen Share - Always visible */}
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
                         variant={isScreenSharing ? "default" : "secondary"}
                         size="sm"
                         onClick={onToggleScreenShare}
-                        className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg hover:scale-105 transition-transform flex-shrink-0 hidden xs:flex"
+                        className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 rounded-full shadow-lg hover:scale-105 transition-transform flex-shrink-0"
                         disabled={!isConnected || !localStream}
                     >
                         <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -118,14 +118,14 @@ export default function SimplifiedToolbar({
                     </TooltipTrigger>
                     <TooltipContent><p>Reactions</p></TooltipContent>
                 </Tooltip>
-                <PopoverContent className="w-auto p-2 bg-gray-900 border-gray-800 rounded-xl">
+                <PopoverContent className="w-auto p-2 bg-slate-800 border-slate-700 rounded-xl shadow-2xl">
                     <div className="grid grid-cols-4 gap-2">
                         {["👋", "👍", "❤️", "😂", "🎉", "👏", "🔥", "💯"].map((emoji) => (
                             <Button
                                 key={emoji}
                                 variant="ghost"
                                 size="icon"
-                                className="text-2xl hover:bg-gray-800 rounded-lg"
+                                className="text-2xl hover:bg-slate-700 rounded-lg"
                                 onClick={() => onSendReaction(emoji)}
                             >
                                 {emoji}
@@ -148,21 +148,21 @@ export default function SimplifiedToolbar({
                         </TooltipTrigger>
                         <TooltipContent><p>Host Controls</p></TooltipContent>
                     </Tooltip>
-                    <PopoverContent className="w-64 p-2 bg-gray-900 border-gray-700 rounded-xl" align="end">
+                    <PopoverContent className="w-64 p-2 bg-slate-800 border-slate-700 rounded-xl shadow-2xl" align="end">
                         <div className="space-y-1">
-                            <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('polls')}>
+                            <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('polls')}>
                                 <BarChart3 className="w-4 h-4 mr-3" />Create Poll
                             </Button>
-                            <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('breakout')}>
+                            <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('breakout')}>
                                 <DoorOpen className="w-4 h-4 mr-3" />Breakout Rooms
                             </Button>
-                            <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('security')}>
+                            <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('security')}>
                                 <Shield className="w-4 h-4 mr-3" />Security
                             </Button>
-                            <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('ai')}>
+                            <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('ai')}>
                                 <Brain className="w-4 h-4 mr-3" />AI Features
                             </Button>
-                            <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('insights')}>
+                            <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('insights')}>
                                 <Lightbulb className="w-4 h-4 mr-3" />Meeting Insights
                             </Button>
                         </div>
@@ -182,22 +182,22 @@ export default function SimplifiedToolbar({
                     </TooltipTrigger>
                     <TooltipContent><p>Activities</p></TooltipContent>
                 </Tooltip>
-                <PopoverContent className="w-64 p-2 bg-gray-900 border-gray-700 rounded-xl" align="end">
+                <PopoverContent className="w-64 p-2 bg-slate-800 border-slate-700 rounded-xl shadow-2xl" align="end">
                     <div className="space-y-1">
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('whiteboard')}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('whiteboard')}>
                             <Pencil className="w-4 h-4 mr-3" />Whiteboard
                         </Button>
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('polls')}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('polls')}>
                             <BarChart3 className="w-4 h-4 mr-3" />{isHost ? "Polls" : "View Polls"}
                         </Button>
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('qa')}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('qa')}>
                             <HelpCircle className="w-4 h-4 mr-3" />Q&A
                         </Button>
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('files')}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('files')}>
                             <Upload className="w-4 h-4 mr-3" />Share Files
                         </Button>
                         {!isHost && (
-                            <Button variant="ghost" className="w-full justify-start text-sm" onClick={onToggleRaiseHand} disabled={!isConnected}>
+                            <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={onToggleRaiseHand} disabled={!isConnected}>
                                 <Hand className="w-4 h-4 mr-3" />Raise Hand
                             </Button>
                         )}
@@ -217,46 +217,43 @@ export default function SimplifiedToolbar({
                     </TooltipTrigger>
                     <TooltipContent><p>More options</p></TooltipContent>
                 </Tooltip>
-                <PopoverContent className="w-64 p-2 bg-gray-900 border-gray-700 rounded-xl" align="end">
+                <PopoverContent className="w-64 p-2 bg-slate-800 border-slate-700 rounded-xl shadow-2xl" align="end">
                     <div className="space-y-1">
                         {/* Mobile-only options */}
-                        <Button variant="ghost" className="w-full justify-start text-sm sm:hidden" onClick={onToggleScreenShare} disabled={!isConnected || !localStream}>
-                            <Monitor className="w-4 h-4 mr-3" />{isScreenSharing ? "Stop Sharing" : "Share Screen"}
-                        </Button>
-                        <Button variant="ghost" className="w-full justify-start text-sm sm:hidden" onClick={() => onSendReaction('👍')} disabled={!isConnected}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700 sm:hidden" onClick={() => onSendReaction('👍')} disabled={!isConnected}>
                             <Smile className="w-4 h-4 mr-3" />Send Reaction
                         </Button>
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={onShowSettings}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={onShowSettings}>
                             <Settings className="w-4 h-4 mr-3" />Settings
                         </Button>
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('background')}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('background')}>
                             <Monitor className="w-4 h-4 mr-3" />Virtual Background
                         </Button>
                         {isHost && (
                             <>
-                                <Button variant="ghost" className="w-full justify-start text-sm" onClick={onRecordToggle} disabled={!isConnected}>
+                                <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={onRecordToggle} disabled={!isConnected}>
                                     <Circle className="w-4 h-4 mr-3" />{isRecording ? "Stop Recording" : "Record Meeting"}
                                 </Button>
                                 {recordedChunks.length > 0 && !isRecording && (
-                                    <Button variant="ghost" className="w-full justify-start text-sm" onClick={onDownloadRecording}>
+                                    <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={onDownloadRecording}>
                                         <Download className="w-4 h-4 mr-3" />Download Recording
                                     </Button>
                                 )}
                             </>
                         )}
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={onToggleCaptions}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={onToggleCaptions}>
                             <Subtitles className="w-4 h-4 mr-3" />{showCaptions ? "Hide" : "Show"} Captions
                         </Button>
                         {isPiPSupported && (
-                            <Button variant="ghost" className="w-full justify-start text-sm" onClick={onTogglePiP}>
+                            <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={onTogglePiP}>
                                 <PictureInPicture className="w-4 h-4 mr-3" />Picture-in-Picture
                             </Button>
                         )}
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={onToggleFullscreen}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={onToggleFullscreen}>
                             {isFullscreen ? <Minimize className="w-4 h-4 mr-3" /> : <Maximize className="w-4 h-4 mr-3" />}
                             {isFullscreen ? "Exit" : "Enter"} Fullscreen
                         </Button>
-                        <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => onShowActivities('keyboard')}>
+                        <Button variant="ghost" className="w-full justify-start text-sm text-slate-100 hover:bg-slate-700" onClick={() => onShowActivities('keyboard')}>
                             <Keyboard className="w-4 h-4 mr-3" />Keyboard Shortcuts
                         </Button>
                     </div>

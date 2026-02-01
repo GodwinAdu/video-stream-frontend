@@ -196,8 +196,8 @@ export default function BreakoutRoomsPanel({
 
     if (!isHost) {
         return (
-            <div className="h-full flex flex-col bg-gray-900 text-gray-50">
-                <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="h-full flex flex-col bg-slate-900 text-slate-50">
+                <div className="flex items-center justify-between p-4 border-b border-slate-700">
                     <h2 className="text-lg font-semibold">Breakout Rooms</h2>
                     <Button variant="ghost" size="icon" onClick={onClose}>
                         <X className="w-5 h-5" />
@@ -217,9 +217,9 @@ export default function BreakoutRoomsPanel({
     }
 
     return (
-        <div className="h-full flex flex-col bg-gray-900 text-gray-50">
+        <div className="h-full flex flex-col bg-slate-900 text-slate-50">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
                 <div className="flex items-center space-x-2">
                     <Users className="w-5 h-5 text-blue-400" />
                     <h2 className="text-lg font-semibold">Breakout Rooms</h2>
@@ -250,7 +250,7 @@ export default function BreakoutRoomsPanel({
                             <div>
                                 <Label>Number of Rooms</Label>
                                 <Select value={numRooms.toString()} onValueChange={v => setNumRooms(parseInt(v))}>
-                                    <SelectTrigger className="bg-gray-800 border-gray-700">
+                                    <SelectTrigger className="bg-slate-800 border-slate-700">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -266,7 +266,7 @@ export default function BreakoutRoomsPanel({
                             <div>
                                 <Label>Assignment</Label>
                                 <Select value={assignmentMode} onValueChange={v => setAssignmentMode(v as any)}>
-                                    <SelectTrigger className="bg-gray-800 border-gray-700">
+                                    <SelectTrigger className="bg-slate-800 border-slate-700">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -282,7 +282,7 @@ export default function BreakoutRoomsPanel({
                                     type="number"
                                     value={duration}
                                     onChange={e => setDuration(parseInt(e.target.value) || 10)}
-                                    className="bg-gray-800 border-gray-700"
+                                    className="bg-slate-800 border-slate-700"
                                     min={1}
                                     max={60}
                                 />
@@ -313,7 +313,7 @@ export default function BreakoutRoomsPanel({
 
                             {/* Unassigned */}
                             {unassignedParticipants.length > 0 && (
-                                <div className="bg-gray-800 rounded-lg p-3">
+                                <div className="bg-slate-800 rounded-lg p-3">
                                     <h3 className="text-sm font-medium mb-2">Unassigned ({unassignedParticipants.length})</h3>
                                     <div className="space-y-1">
                                         {unassignedParticipants.map(participantId => (
@@ -339,7 +339,7 @@ export default function BreakoutRoomsPanel({
 
                             {/* Rooms */}
                             {rooms.map(room => (
-                                <div key={room.id} className="bg-gray-800 rounded-lg p-3">
+                                <div key={room.id} className="bg-slate-800 rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-2">
                                         <h3 className="text-sm font-medium">{room.name}</h3>
                                         <Badge variant="secondary">{room.participants.length}</Badge>
@@ -358,7 +358,7 @@ export default function BreakoutRoomsPanel({
                                             </div>
                                         ))}
                                         {room.participants.length === 0 && (
-                                            <p className="text-xs text-gray-500">No participants assigned</p>
+                                            <p className="text-xs text-slate-500">No participants assigned</p>
                                         )}
                                     </div>
                                 </div>
@@ -377,14 +377,14 @@ export default function BreakoutRoomsPanel({
                             <Separator />
 
                             {rooms.map(room => (
-                                <div key={room.id} className="bg-gray-800 rounded-lg p-3">
+                                <div key={room.id} className="bg-slate-800 rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-2">
                                         <h3 className="text-sm font-medium">{room.name}</h3>
                                         <Badge variant="secondary">{room.participants.length}</Badge>
                                     </div>
                                     <div className="space-y-1">
                                         {room.participants.map(participantId => (
-                                            <div key={participantId} className="text-sm text-gray-300">
+                                            <div key={participantId} className="text-sm text-slate-300">
                                                 {getParticipantName(participantId)}
                                             </div>
                                         ))}

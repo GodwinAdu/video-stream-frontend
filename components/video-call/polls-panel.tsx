@@ -170,9 +170,9 @@ export default function PollsPanel({
     }
 
     return (
-        <div className="h-full flex flex-col bg-gray-900 text-gray-50">
+        <div className="h-full flex flex-col bg-slate-900 text-slate-50">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
                 <div className="flex items-center space-x-2">
                     <BarChart3 className="w-5 h-5 text-blue-400" />
                     <h2 className="text-lg font-semibold">Polls</h2>
@@ -194,7 +194,7 @@ export default function PollsPanel({
                 <div className="p-4 space-y-4">
                     {/* Create Poll */}
                     {isCreating && (
-                        <div className="bg-gray-800 rounded-lg p-4 space-y-4">
+                        <div className="bg-slate-800 rounded-lg p-4 space-y-4">
                             <h3 className="font-medium">Create New Poll</h3>
 
                             <div>
@@ -203,7 +203,7 @@ export default function PollsPanel({
                                     value={newQuestion}
                                     onChange={e => setNewQuestion(e.target.value)}
                                     placeholder="Enter your question..."
-                                    className="bg-gray-900 border-gray-700"
+                                    className="bg-slate-900 border-slate-700"
                                     rows={2}
                                 />
                             </div>
@@ -217,7 +217,7 @@ export default function PollsPanel({
                                                 value={option}
                                                 onChange={e => updateOption(index, e.target.value)}
                                                 placeholder={`Option ${index + 1}`}
-                                                className="bg-gray-900 border-gray-700"
+                                                className="bg-slate-900 border-slate-700"
                                             />
                                             {newOptions.length > 2 && (
                                                 <Button
@@ -283,7 +283,7 @@ export default function PollsPanel({
                                 </RadioGroup>
                             ) : (
                                 <div className="space-y-2">
-                                    <p className="text-sm text-gray-400">
+                                    <p className="text-sm text-slate-400">
                                         {Object.keys(activePoll.votes).length} vote(s) received
                                     </p>
                                     {activePoll.options.map((option, index) => {
@@ -293,7 +293,7 @@ export default function PollsPanel({
                                                 {isMyVote ? (
                                                     <CheckCircle className="w-4 h-4 text-green-400" />
                                                 ) : (
-                                                    <Circle className="w-4 h-4 text-gray-600" />
+                                                    <Circle className="w-4 h-4 text-slate-600" />
                                                 )}
                                                 <span className={isMyVote ? "text-green-400" : ""}>{option}</span>
                                             </div>
@@ -317,7 +317,7 @@ export default function PollsPanel({
                                     const totalVotes = Object.keys(poll.votes).length
 
                                     return (
-                                        <div key={poll.id} className="bg-gray-800 rounded-lg p-4 space-y-3">
+                                        <div key={poll.id} className="bg-slate-800 rounded-lg p-4 space-y-3">
                                             <div className="flex items-start justify-between">
                                                 <h4 className="font-medium">{poll.question}</h4>
                                                 <Badge variant="secondary">{totalVotes} votes</Badge>
@@ -328,7 +328,7 @@ export default function PollsPanel({
                                                     <div key={index} className="space-y-1">
                                                         <div className="flex items-center justify-between text-sm">
                                                             <span>{result.option}</span>
-                                                            <span className="text-gray-400">
+                                                            <span className="text-slate-400">
                                                                 {result.votes} ({result.percentage.toFixed(0)}%)
                                                             </span>
                                                         </div>
@@ -337,7 +337,7 @@ export default function PollsPanel({
                                                 ))}
                                             </div>
 
-                                            <p className="text-xs text-gray-500">
+                                            <p className="text-xs text-slate-500">
                                                 {new Date(poll.createdAt).toLocaleString()}
                                             </p>
                                         </div>
@@ -347,7 +347,7 @@ export default function PollsPanel({
                     )}
 
                     {polls.length === 0 && !isCreating && (
-                        <div className="text-center py-12 text-gray-500">
+                        <div className="text-center py-12 text-slate-500">
                             <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
                             <p>No polls yet</p>
                             {isHost && <p className="text-sm mt-2">Create a poll to get started</p>}

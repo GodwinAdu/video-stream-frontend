@@ -216,9 +216,9 @@ export default function WhiteboardPanel({ onClose, signalingRef, localParticipan
     }
 
     return (
-        <div className="h-full flex flex-col bg-gray-900 text-gray-50">
+        <div className="h-full flex flex-col bg-slate-900 text-slate-50">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
                 <div className="flex items-center space-x-2">
                     <Pencil className="w-5 h-5 text-blue-400" />
                     <h2 className="text-lg font-semibold">Whiteboard</h2>
@@ -229,7 +229,7 @@ export default function WhiteboardPanel({ onClose, signalingRef, localParticipan
             </div>
 
             {/* Toolbar */}
-            <div className="p-4 border-b border-gray-700 space-y-4">
+            <div className="p-4 border-b border-slate-700 space-y-4">
                 {/* Tools */}
                 <div className="flex items-center space-x-2">
                     <Button
@@ -279,13 +279,13 @@ export default function WhiteboardPanel({ onClose, signalingRef, localParticipan
 
                 {/* Colors */}
                 <div className="flex items-center space-x-2">
-                    <Palette className="w-4 h-4 text-gray-400" />
+                    <Palette className="w-4 h-4 text-slate-400" />
                     {colors.map(c => (
                         <button
                             key={c}
                             onClick={() => setColor(c)}
                             className={`w-8 h-8 rounded-full border-2 ${
-                                color === c ? "border-blue-400 scale-110" : "border-gray-600"
+                                color === c ? "border-blue-400 scale-110" : "border-slate-600"
                             } transition-transform`}
                             style={{ backgroundColor: c }}
                         />

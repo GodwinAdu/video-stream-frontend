@@ -100,7 +100,7 @@ export default function VideoCallInterface() {
             case "poor":
                 return "bg-red-500"
             default:
-                return "bg-gray-500"
+                return "bg-slate-500"
         }
     }
 
@@ -116,13 +116,13 @@ export default function VideoCallInterface() {
 
     return (
         <TooltipProvider>
-            <div className="h-screen flex flex-col bg-gray-900 text-white relative">
+            <div className="h-screen flex flex-col bg-slate-900 text-white relative">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
+                <div className="flex items-center justify-between p-4 bg-slate-800/50 backdrop-blur-sm border-b border-slate-700">
                     <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
                             <div className={`w-3 h-3 rounded-full ${getQualityColor(connectionQuality)}`} />
-                            <span className="text-sm text-gray-300">Room: {roomId}</span>
+                            <span className="text-sm text-slate-300">Room: {roomId}</span>
                             <Button variant="ghost" size="sm" className="h-6 px-2">
                                 <Copy className="w-3 h-3" />
                             </Button>
@@ -142,7 +142,7 @@ export default function VideoCallInterface() {
                     </div>
 
                     <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-400">{participants.length} participants</span>
+                        <span className="text-sm text-slate-400">{participants.length} participants</span>
                         <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
                             <Monitor className="w-4 h-4" />
                         </Button>
@@ -158,7 +158,7 @@ export default function VideoCallInterface() {
                     <div className="flex-1 p-4 relative">
                         <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {/* Remote Video */}
-                            <Card className="relative overflow-hidden bg-gray-800 border-gray-700 group">
+                            <Card className="relative overflow-hidden bg-slate-800 border-slate-700 group">
                                 <video
                                     ref={remoteVideoRef}
                                     className="w-full h-full object-cover"
@@ -207,7 +207,7 @@ export default function VideoCallInterface() {
                             </Card>
 
                             {/* Local Video */}
-                            <Card className="relative overflow-hidden bg-gray-800 border-gray-700 group">
+                            <Card className="relative overflow-hidden bg-slate-800 border-slate-700 group">
                                 <video
                                     ref={localVideoRef}
                                     className="w-full h-full object-cover scale-x-[-1]"
@@ -228,7 +228,7 @@ export default function VideoCallInterface() {
                                         <p className="text-sm font-medium">You</p>
                                         <div className="flex items-center space-x-1">
                                             <Crown className="w-3 h-3 text-yellow-400" />
-                                            <span className="text-xs text-gray-300">Host</span>
+                                            <span className="text-xs text-slate-300">Host</span>
                                         </div>
                                     </div>
                                 </div>
@@ -254,15 +254,15 @@ export default function VideoCallInterface() {
                         {/* AI Transcription Overlay */}
                         {aiTranscription && (
                             <div className="absolute bottom-20 left-4 right-4 lg:right-1/2 lg:mr-2">
-                                <Card className="bg-black/80 backdrop-blur-sm border-gray-600 p-3">
+                                <Card className="bg-black/80 backdrop-blur-sm border-slate-600 p-3">
                                     <div className="flex items-start space-x-2">
                                         <FileText className="w-4 h-4 text-blue-400 mt-0.5" />
                                         <div className="flex-1">
-                                            <p className="text-sm text-gray-300">
+                                            <p className="text-sm text-slate-300">
                                                 <span className="text-blue-400 font-medium">Sarah:</span> "I think we should focus on the AI
                                                 integration features for the next sprint..."
                                             </p>
-                                            <p className="text-xs text-gray-500 mt-1">Live transcription powered by AI</p>
+                                            <p className="text-xs text-slate-500 mt-1">Live transcription powered by AI</p>
                                         </div>
                                     </div>
                                 </Card>
@@ -292,11 +292,11 @@ export default function VideoCallInterface() {
                 </div>
 
                 {/* Bottom Toolbar */}
-                <div className="p-4 bg-gray-800/50 backdrop-blur-sm border-t border-gray-700">
+                <div className="p-4 bg-slate-800/50 backdrop-blur-sm border-t border-slate-700">
                     <div className="flex items-center justify-between max-w-4xl mx-auto">
                         {/* Left Controls */}
                         <div className="flex items-center space-x-2">
-                            <div className="flex items-center space-x-1 bg-gray-700/50 rounded-lg p-1">
+                            <div className="flex items-center space-x-1 bg-slate-700/50 rounded-lg p-1">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
@@ -330,7 +330,7 @@ export default function VideoCallInterface() {
                                 </Tooltip>
                             </div>
 
-                            <Separator orientation="vertical" className="h-6 bg-gray-600" />
+                            <Separator orientation="vertical" className="h-6 bg-slate-600" />
 
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -463,7 +463,7 @@ export default function VideoCallInterface() {
                                 </TooltipContent>
                             </Tooltip>
 
-                            <Separator orientation="vertical" className="h-6 bg-gray-600" />
+                            <Separator orientation="vertical" className="h-6 bg-slate-600" />
 
                             <Tooltip>
                                 <TooltipTrigger asChild>

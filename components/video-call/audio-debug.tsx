@@ -53,19 +53,19 @@ export default function AudioDebug({ participants, localStream }: AudioDebugProp
     }
 
     return (
-        <Card className="fixed top-4 right-4 p-4 bg-gray-900/95 backdrop-blur-xl border-gray-700/50 max-w-sm z-50">
+        <Card className="fixed top-4 right-4 p-4 bg-slate-900/95 backdrop-blur-xl border-slate-700/50 max-w-sm z-50">
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-200">Audio Debug</h3>
+                    <h3 className="text-sm font-semibold text-slate-200">Audio Debug</h3>
                     <Button size="sm" onClick={enableAllAudio} className="h-6 px-2 text-xs">
                         <Volume2 className="w-3 h-3 mr-1" />
                         Enable All
                     </Button>
                 </div>
                 {audioInfo.map(info => (
-                    <div key={info.id} className="text-xs space-y-1 p-2 bg-gray-800/50 rounded">
-                        <div className="font-medium text-gray-300">{info.name}</div>
-                        <div className="grid grid-cols-2 gap-1 text-gray-400">
+                    <div key={info.id} className="text-xs space-y-1 p-2 bg-slate-800/50 rounded">
+                        <div className="font-medium text-slate-300">{info.name}</div>
+                        <div className="grid grid-cols-2 gap-1 text-slate-400">
                             <div>Stream: {info.hasStream ? '✅' : '❌'}</div>
                             <div>Audio Tracks: {info.audioTracks}</div>
                             <div>Video Tracks: {info.videoTracks}</div>

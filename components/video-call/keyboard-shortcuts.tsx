@@ -166,9 +166,9 @@ export function KeyboardShortcutsHelp({ onClose }: { onClose: () => void }) {
   )
 
   return (
-    <Card className="w-full max-w-md bg-gray-900 border-gray-700 rounded-xl shadow-2xl">
+    <Card className="w-full max-w-md bg-slate-900 border-slate-700 rounded-xl shadow-2xl">
       <CardHeader>
-        <CardTitle className="text-gray-50 flex items-center justify-between">
+        <CardTitle className="text-slate-50 flex items-center justify-between">
           <div className="flex items-center">
             <Keyboard className="w-5 h-5 mr-2" />
             Keyboard Shortcuts
@@ -177,7 +177,7 @@ export function KeyboardShortcutsHelp({ onClose }: { onClose: () => void }) {
             {shortcuts.length} shortcuts
           </Badge>
         </CardTitle>
-        <CardDescription className="text-gray-400">
+        <CardDescription className="text-slate-400">
           Use these shortcuts to control your meeting efficiently
         </CardDescription>
         <input
@@ -185,25 +185,25 @@ export function KeyboardShortcutsHelp({ onClose }: { onClose: () => void }) {
           placeholder="Search shortcuts..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </CardHeader>
       <CardContent className="space-y-3 max-h-80 overflow-y-auto">
         {filteredShortcuts.map((shortcut) => (
-          <div key={shortcut.key} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800/50">
-            <span className="text-gray-300 text-sm">{shortcut.description}</span>
-            <Badge variant="secondary" className="bg-gray-800 text-gray-300 font-mono text-xs">
+          <div key={shortcut.key} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/50">
+            <span className="text-slate-300 text-sm">{shortcut.description}</span>
+            <Badge variant="secondary" className="bg-slate-800 text-slate-300 font-mono text-xs">
               {shortcut.key}
             </Badge>
           </div>
         ))}
         {filteredShortcuts.length === 0 && (
-          <div className="text-center py-4 text-gray-500">
+          <div className="text-center py-4 text-slate-500">
             No shortcuts found matching "{searchTerm}"
           </div>
         )}
-        <div className="pt-4 border-t border-gray-700">
-          <div className="space-y-2 text-xs text-gray-500">
+        <div className="pt-4 border-t border-slate-700">
+          <div className="space-y-2 text-xs text-slate-500">
             <p>💡 <strong>Tip:</strong> Hold Space for push-to-talk</p>
             <p>⚠️ Shortcuts don't work when typing in text fields</p>
             <p>Press <Badge variant="outline" className="mx-1 text-xs">?</Badge> anytime to toggle this help</p>

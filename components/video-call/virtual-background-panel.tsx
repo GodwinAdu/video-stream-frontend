@@ -175,9 +175,9 @@ export default function VirtualBackgroundPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-900 text-white">
+    <div className="h-full flex flex-col bg-slate-900 text-white">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-slate-700">
         <h2 className="text-lg font-semibold flex items-center">
           <Monitor className="w-5 h-5 mr-2 text-blue-400" />
           Virtual Backgrounds
@@ -187,7 +187,7 @@ export default function VirtualBackgroundPanel({
             variant="ghost"
             size="sm"
             onClick={() => setPreviewEnabled(!previewEnabled)}
-            className="text-gray-400"
+            className="text-slate-400"
           >
             {previewEnabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
           </Button>
@@ -199,8 +199,8 @@ export default function VirtualBackgroundPanel({
 
       {/* Preview */}
       {previewEnabled && (
-        <div className="p-4 border-b border-gray-700">
-          <div className="relative aspect-video bg-gray-800 rounded-lg overflow-hidden">
+        <div className="p-4 border-b border-slate-700">
+          <div className="relative aspect-video bg-slate-800 rounded-lg overflow-hidden">
             <video
               ref={previewVideoRef}
               className="absolute inset-0 w-full h-full object-cover opacity-0"
@@ -224,7 +224,7 @@ export default function VirtualBackgroundPanel({
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         <Tabs defaultValue="presets" className="h-full">
-          <TabsList className="w-full bg-gray-800 border-gray-700">
+          <TabsList className="w-full bg-slate-800 border-slate-700">
             <TabsTrigger value="presets">Presets</TabsTrigger>
             <TabsTrigger value="custom">Custom</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -233,18 +233,18 @@ export default function VirtualBackgroundPanel({
           <TabsContent value="presets" className="p-4 space-y-4">
             {/* None */}
             <div>
-              <Label className="text-sm font-medium text-gray-300 mb-2 block">No Background</Label>
+              <Label className="text-sm font-medium text-slate-300 mb-2 block">No Background</Label>
               <Card 
                 className={`p-3 cursor-pointer transition-all ${
                   currentBackground.type === 'none' 
                     ? 'bg-blue-600/20 border-blue-500' 
-                    : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
+                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
                 }`}
                 onClick={() => applyBackground({ type: 'none' })}
               >
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-8 bg-gradient-to-br from-gray-600 to-gray-800 rounded flex items-center justify-center">
-                    <X className="w-4 h-4 text-gray-300" />
+                    <X className="w-4 h-4 text-slate-300" />
                   </div>
                   <span className="text-sm">None</span>
                 </div>
@@ -253,7 +253,7 @@ export default function VirtualBackgroundPanel({
 
             {/* Blur */}
             <div>
-              <Label className="text-sm font-medium text-gray-300 mb-2 block">Blur</Label>
+              <Label className="text-sm font-medium text-slate-300 mb-2 block">Blur</Label>
               <div className="grid grid-cols-1 gap-2">
                 {VIRTUAL_BACKGROUNDS.blur.map((blur, index) => (
                   <Card
@@ -261,7 +261,7 @@ export default function VirtualBackgroundPanel({
                     className={`p-3 cursor-pointer transition-all ${
                       currentBackground.type === 'blur' && currentBackground.blurAmount === blur.blurAmount
                         ? 'bg-blue-600/20 border-blue-500'
-                        : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
+                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
                     }`}
                     onClick={() => applyBackground({ type: 'blur', blurAmount: blur.blurAmount })}
                   >
@@ -278,7 +278,7 @@ export default function VirtualBackgroundPanel({
 
             {/* Images */}
             <div>
-              <Label className="text-sm font-medium text-gray-300 mb-2 block">Images</Label>
+              <Label className="text-sm font-medium text-slate-300 mb-2 block">Images</Label>
               <div className="grid grid-cols-2 gap-2">
                 {VIRTUAL_BACKGROUNDS.images.map((image, index) => (
                   <Card
@@ -286,7 +286,7 @@ export default function VirtualBackgroundPanel({
                     className={`p-2 cursor-pointer transition-all ${
                       currentBackground.type === 'image' && currentBackground.imageUrl === image.url
                         ? 'bg-blue-600/20 border-blue-500'
-                        : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
+                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
                     }`}
                     onClick={() => applyBackground({ type: 'image', imageUrl: image.url })}
                   >
@@ -301,7 +301,7 @@ export default function VirtualBackgroundPanel({
 
             {/* Videos */}
             <div>
-              <Label className="text-sm font-medium text-gray-300 mb-2 block">Videos</Label>
+              <Label className="text-sm font-medium text-slate-300 mb-2 block">Videos</Label>
               <div className="grid grid-cols-2 gap-2">
                 {VIRTUAL_BACKGROUNDS.videos.map((video, index) => (
                   <Card
@@ -309,7 +309,7 @@ export default function VirtualBackgroundPanel({
                     className={`p-2 cursor-pointer transition-all ${
                       currentBackground.type === 'video' && currentBackground.videoUrl === video.url
                         ? 'bg-blue-600/20 border-blue-500'
-                        : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
+                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
                     }`}
                     onClick={() => applyBackground({ type: 'video', videoUrl: video.url })}
                   >
@@ -352,7 +352,7 @@ export default function VirtualBackgroundPanel({
                       currentBackground.type === bg.type && 
                       (currentBackground.imageUrl === bg.url || currentBackground.videoUrl === bg.url)
                         ? 'bg-blue-600/20 border-blue-500'
-                        : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
+                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
                     }`}
                     onClick={() => applyBackground({ 
                       type: bg.type, 
@@ -399,7 +399,7 @@ export default function VirtualBackgroundPanel({
             )}
 
             {customBackgrounds.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-slate-500">
                 <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>No custom backgrounds yet</p>
                 <p className="text-sm">Upload images or videos to get started</p>
@@ -411,7 +411,7 @@ export default function VirtualBackgroundPanel({
             {/* Blur Settings */}
             {currentBackground.type === 'blur' && (
               <div>
-                <Label className="text-sm font-medium text-gray-300 mb-2 block">
+                <Label className="text-sm font-medium text-slate-300 mb-2 block">
                   Blur Amount: {currentBackground.blurAmount || 10}px
                 </Label>
                 <Slider
@@ -431,8 +431,8 @@ export default function VirtualBackgroundPanel({
 
             {/* Performance */}
             <div>
-              <Label className="text-sm font-medium text-gray-300 mb-2 block">Performance</Label>
-              <div className="space-y-2 text-sm text-gray-400">
+              <Label className="text-sm font-medium text-slate-300 mb-2 block">Performance</Label>
+              <div className="space-y-2 text-sm text-slate-400">
                 <p>• MediaPipe: {isInitialized ? '✅ Available' : '❌ Not Available'}</p>
                 <p>• Hardware Acceleration: {navigator.hardwareConcurrency > 4 ? '✅ Good' : '⚠️ Limited'}</p>
                 <p>• Memory Usage: {(performance as any).memory ? 
@@ -443,8 +443,8 @@ export default function VirtualBackgroundPanel({
 
             {/* Tips */}
             <div>
-              <Label className="text-sm font-medium text-gray-300 mb-2 block">Tips</Label>
-              <div className="space-y-1 text-xs text-gray-500">
+              <Label className="text-sm font-medium text-slate-300 mb-2 block">Tips</Label>
+              <div className="space-y-1 text-xs text-slate-500">
                 <p>• Use good lighting for better segmentation</p>
                 <p>• Avoid busy backgrounds behind you</p>
                 <p>• Keep movements smooth for best results</p>
@@ -456,16 +456,16 @@ export default function VirtualBackgroundPanel({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-700">
+      <div className="p-4 border-t border-slate-700">
         <div className="flex justify-between items-center">
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-slate-500">
             {isInitialized ? 'AI-powered segmentation' : 'Basic blur mode'}
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => applyBackground({ type: 'none' })}
-            className="border-gray-600 text-gray-300"
+            className="border-slate-600 text-slate-300"
           >
             Reset
           </Button>

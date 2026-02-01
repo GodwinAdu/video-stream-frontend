@@ -163,15 +163,15 @@ export default function JoinRoomDialog({ onJoin, initialRoomId }: JoinRoomDialog
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Preview Panel */}
-        <Card className="bg-gray-900/80 backdrop-blur-xl border-gray-700/50 rounded-2xl shadow-2xl">
+        <Card className="bg-slate-900/80 backdrop-blur-xl border-slate-700/50 rounded-2xl shadow-2xl">
           <CardHeader>
-            <CardTitle className="text-gray-50 text-xl font-semibold flex items-center">
+            <CardTitle className="text-slate-50 text-xl font-semibold flex items-center">
               <Video className="w-5 h-5 mr-2" />
               Camera Preview
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative aspect-video bg-gray-800 rounded-xl overflow-hidden mb-4">
+            <div className="relative aspect-video bg-slate-800 rounded-xl overflow-hidden mb-4">
               {previewStream && !isVideoOff ? (
                 <video
                   ref={videoRef}
@@ -207,12 +207,12 @@ export default function JoinRoomDialog({ onJoin, initialRoomId }: JoinRoomDialog
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-2xl font-semibold text-gray-300">
+                    <div className="w-20 h-20 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl font-semibold text-slate-300">
                         {userName ? userName.charAt(0).toUpperCase() : "?"}
                       </span>
                     </div>
-                    <p className="text-gray-400">{isVideoOff ? "Camera is off" : "No camera access"}</p>
+                    <p className="text-slate-400">{isVideoOff ? "Camera is off" : "No camera access"}</p>
                   </div>
                 </div>
               )}
@@ -252,29 +252,29 @@ export default function JoinRoomDialog({ onJoin, initialRoomId }: JoinRoomDialog
         </Card>
 
         {/* Room Management */}
-        <Card className="bg-gray-900/80 backdrop-blur-xl border-gray-700/50 rounded-2xl shadow-2xl">
+        <Card className="bg-slate-900/80 backdrop-blur-xl border-slate-700/50 rounded-2xl shadow-2xl">
           <CardHeader className="text-center">
             <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users className="w-8 h-8 text-white" />
             </div>
-            <CardTitle className="text-gray-50 text-2xl font-bold">Video Meeting</CardTitle>
-            <CardDescription className="text-gray-400 mt-2">Create a new room or join an existing one</CardDescription>
+            <CardTitle className="text-slate-50 text-2xl font-bold">Video Meeting</CardTitle>
+            <CardDescription className="text-slate-400 mt-2">Create a new room or join an existing one</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue={initialRoomId ? "join" : "create"} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-gray-800/50">
+              <TabsList className="grid w-full grid-cols-2 bg-slate-800/50">
                 <TabsTrigger value="create" className="data-[state=active]:bg-blue-600">Create Room</TabsTrigger>
                 <TabsTrigger value="join" className="data-[state=active]:bg-blue-600">Join Room</TabsTrigger>
               </TabsList>
               
               <TabsContent value="create" className="space-y-4 mt-6">
                 <div className="space-y-2">
-                  <Label className="text-gray-300">Your Name</Label>
+                  <Label className="text-slate-300">Your Name</Label>
                   <Input
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
                     placeholder="Enter your name"
-                    className="bg-gray-800/50 border-gray-600 text-gray-50 h-12"
+                    className="bg-slate-800/50 border-slate-600 text-slate-50 h-12"
                   />
                 </div>
 
@@ -297,7 +297,7 @@ export default function JoinRoomDialog({ onJoin, initialRoomId }: JoinRoomDialog
                       </Button>
                     </div>
                     <div className="flex items-center space-x-2 text-sm">
-                      <code className="bg-gray-800/50 px-2 py-1 rounded text-blue-300 text-xs">
+                      <code className="bg-slate-800/50 px-2 py-1 rounded text-blue-300 text-xs">
                         {currentUser.personalRoomId}
                       </code>
                       <Button
@@ -329,28 +329,28 @@ export default function JoinRoomDialog({ onJoin, initialRoomId }: JoinRoomDialog
                     }
                   }}
                   variant="outline"
-                  className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 h-12"
+                  className="w-full border-slate-600 text-slate-300 hover:bg-slate-800 h-12"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   {isAuthenticated ? "Generate New Room ID" : "Sign in to Create Room"}
                 </Button>
                 
                 {roomId && (
-                  <div className="bg-gray-800/30 rounded-xl p-4 space-y-3">
-                    <Label className="text-gray-300">
+                  <div className="bg-slate-800/30 rounded-xl p-4 space-y-3">
+                    <Label className="text-slate-300">
                       {usePersonalRoom ? 'Personal Meeting Room ID' : 'Room ID (Share with others)'}
                     </Label>
                     <div className="flex space-x-2">
                       <Input
                         value={roomId}
                         readOnly
-                        className="bg-gray-700/50 border-gray-600 text-gray-50 h-10"
+                        className="bg-slate-700/50 border-slate-600 text-slate-50 h-10"
                       />
                       <Button
                         onClick={copyRoomId}
                         variant="outline"
                         size="sm"
-                        className="border-gray-600 h-10 w-10 p-0"
+                        className="border-slate-600 h-10 w-10 p-0"
                       >
                         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </Button>
@@ -397,22 +397,22 @@ export default function JoinRoomDialog({ onJoin, initialRoomId }: JoinRoomDialog
               
               <TabsContent value="join" className="space-y-4 mt-6">
                 <div className="space-y-2">
-                  <Label className="text-gray-300">Room ID</Label>
+                  <Label className="text-slate-300">Room ID</Label>
                   <Input
                     value={roomId}
                     onChange={(e) => setRoomId(e.target.value)}
                     placeholder="Enter room ID"
-                    className="bg-gray-800/50 border-gray-600 text-gray-50 h-12"
+                    className="bg-slate-800/50 border-slate-600 text-slate-50 h-12"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-gray-300">Your Name</Label>
+                  <Label className="text-slate-300">Your Name</Label>
                   <Input
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
                     placeholder="Enter your name"
-                    className="bg-gray-800/50 border-gray-600 text-gray-50 h-12"
+                    className="bg-slate-800/50 border-slate-600 text-slate-50 h-12"
                   />
                 </div>
                 
@@ -449,7 +449,7 @@ export default function JoinRoomDialog({ onJoin, initialRoomId }: JoinRoomDialog
               </TabsContent>
             </Tabs>
             
-            <div className="bg-gray-800/30 rounded-xl p-4 mt-6">
+            <div className="bg-slate-800/30 rounded-xl p-4 mt-6">
               <div className="grid grid-cols-2 gap-3">
                 <Badge variant="secondary" className="bg-green-600/20 text-green-300 justify-center py-2">
                   <Shield className="w-3 h-3 mr-1" />

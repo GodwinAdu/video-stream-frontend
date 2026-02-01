@@ -238,7 +238,7 @@ const ParticipantGrid = ({
                         
                         {/* Sidebar pagination indicator */}
                         {sidebarTotalPages > 1 && (
-                            <div className="flex-shrink-0 w-32 md:w-full flex items-center justify-center bg-black/40 rounded-lg p-2">
+                            <div className="flex-shrink-0 w-32 md:w-full flex items-center justify-center bg-slate-900/60 rounded-lg p-2">
                                 <span className="text-white text-xs">
                                     {currentPage + 1}/{sidebarTotalPages}
                                 </span>
@@ -373,7 +373,7 @@ const ParticipantVideo = ({
 
     return (
         <div
-            className={`relative bg-gray-800 rounded-xl lg:rounded-2xl overflow-hidden group transition-all duration-200 w-full h-full shadow-lg ${
+            className={`relative bg-slate-800 rounded-xl lg:rounded-2xl overflow-hidden group transition-all duration-200 w-full h-full shadow-lg ${
                 isSpeaking 
                     ? "ring-4 sm:ring-[6px] ring-green-400 shadow-2xl shadow-green-400/50 scale-[1.02]" 
                     : "ring-1 ring-gray-700/50 hover:ring-2 hover:ring-gray-600/50"
@@ -395,16 +395,16 @@ const ParticipantVideo = ({
                         }}
                     />
                     {isVideoLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                         </div>
                     )}
                 </>
             ) : (
-                <div className="w-full h-full flex items-center justify-center bg-[#202124]">
+                <div className="w-full h-full flex items-center justify-center bg-slate-900">
                     <div className="flex flex-col items-center justify-center gap-3">
                         {/* Google Meet style avatar */}
-                        <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 bg-[#5f6368] rounded-full flex items-center justify-center">
+                        <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 bg-slate-700 rounded-full flex items-center justify-center">
                             <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium text-white">
                                 {participant.name
                                     .split(" ")
@@ -484,7 +484,7 @@ const ParticipantVideo = ({
 
             {/* Participant info overlay */}
             <div className="absolute bottom-1 sm:bottom-2 left-1 sm:left-2 right-1 sm:right-2 flex items-center justify-between">
-                <div className="flex items-center space-x-1 sm:space-x-2 bg-black/50 rounded px-1.5 sm:px-2 py-0.5 sm:py-1 min-w-0 flex-1 mr-2">
+                <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-900/80 rounded px-1.5 sm:px-2 py-0.5 sm:py-1 min-w-0 flex-1 mr-2">
                     <span className="text-white text-xs sm:text-sm font-medium truncate">{participant.name}</span>
                     {participant.isHost && <Crown className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-yellow-400 flex-shrink-0" />}
                     {isScreenShare && <Monitor className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-blue-400 flex-shrink-0" />}
@@ -897,7 +897,7 @@ export default function WebRTCVideoCall() {
             case "poor":
                 return <WifiOff className="w-4 h-4 text-red-400" />
             default:
-                return <WifiOff className="w-4 h-4 text-gray-400" />
+                return <WifiOff className="w-4 h-4 text-slate-400" />
         }
     }
 
@@ -1111,27 +1111,40 @@ export default function WebRTCVideoCall() {
     return (
         <TooltipProvider>
             <div
-                className="h-screen flex flex-col bg-gray-950 text-gray-50 relative overflow-hidden"
+                className="h-screen flex flex-col bg-slate-950 text-slate-50 relative overflow-hidden"
                 onMouseMove={resetToolbarTimeout}
                 onClick={resetToolbarTimeout}
             >
                 {/* Enhanced Header */}
                 <div
-                    className={`flex items-center justify-between p-3 sm:p-4 bg-gray-900/90 backdrop-blur-xl border-b border-gray-700/50 transition-transform duration-300 ${showToolbar ? "translate-y-0" : "-translate-y-full"}`}
+                    className={`flex items-center justify-between p-3 sm:p-4 bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 transition-transform duration-300 ${showToolbar ? "translate-y-0" : "-translate-y-full"}`}
                 >
                     <div className="flex items-center space-x-3 sm:space-x-4">
                         <div className={`w-3 h-3 rounded-full ${getConnectionQualityColor()}`} />
-                        <span className="text-xs sm:text-sm text-gray-300">Room: {currentRoomId}</span>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-6 px-2 text-gray-400 hover:text-gray-50"
-                            onClick={() => {
-                                navigator.clipboard.writeText(currentRoomId)
-                            }}
-                        >
-                            <Copy className="w-3 h-3" />
-                        </Button>
+                        <span className="text-xs sm:text-sm text-slate-200 font-medium hidden sm:inline">Room: {currentRoomId}</span>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-7 px-2 sm:px-3 text-slate-300 hover:text-slate-50 hover:bg-slate-800"
+                                    onClick={() => {
+                                        const meetingLink = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`
+                                        navigator.clipboard.writeText(meetingLink)
+                                        import('sonner').then(({ toast }) => {
+                                            toast.success('Meeting link copied!', {
+                                                description: 'Share this link with others to join',
+                                                duration: 3000,
+                                            })
+                                        })
+                                    }}
+                                >
+                                    <Copy className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1.5" />
+                                    <span className="text-xs hidden sm:inline">Share</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Copy meeting link</p></TooltipContent>
+                        </Tooltip>
                         {getNetworkIcon()}
                         {/* Host indicator */}
                         {allParticipants.find(p => p.id === localParticipantId)?.isHost && (
@@ -1170,8 +1183,8 @@ export default function WebRTCVideoCall() {
                     </div>
 
                     <div className="flex items-center space-x-2">
-                        <span className="text-xs sm:text-sm text-gray-400">{allParticipants.length} participants</span>
-                        <Button variant="ghost" size="sm" onClick={toggleFullscreen} className="text-gray-400 hover:text-gray-50">
+                        <span className="text-xs sm:text-sm text-slate-300 font-medium">{allParticipants.length} participants</span>
+                        <Button variant="ghost" size="sm" onClick={toggleFullscreen} className="text-slate-300 hover:text-slate-50">
                             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                         </Button>
                     </div>
@@ -1186,7 +1199,7 @@ export default function WebRTCVideoCall() {
                 )}
 
                 {/* Main Video Area with Pagination */}
-                <div className="flex-1 relative bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 overflow-hidden">
+                <div className="flex-1 relative bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden">
                     {/* Enhanced View Mode Controls */}
                     <div className="absolute top-4 sm:top-6 lg:top-8 left-4 sm:left-6 lg:left-8 z-10 flex flex-wrap gap-2 sm:gap-3">
                         <Button
@@ -1217,7 +1230,7 @@ export default function WebRTCVideoCall() {
                             <span className="hidden sm:inline">Focus</span>
                         </Button>
                         {allParticipants.length > 6 && (
-                            <div className="bg-black/60 backdrop-blur-md rounded-lg px-3 py-2 text-xs sm:text-sm text-white shadow-lg border border-gray-700/50">
+                            <div className="bg-slate-900/80 backdrop-blur-md rounded-lg px-3 py-2 text-xs sm:text-sm text-white shadow-lg border border-slate-700/50">
                                 {allParticipants.length} participants
                             </div>
                         )}
@@ -1238,7 +1251,7 @@ export default function WebRTCVideoCall() {
 
                     {/* Pagination Controls */}
                     {hasMultiplePages && (
-                        <div className="absolute bottom-24 md:bottom-28 lg:bottom-32 left-1/2 transform -translate-x-1/2 flex items-center space-x-3 bg-black/70 backdrop-blur-md rounded-xl px-5 py-3 z-20 shadow-2xl border border-gray-700/50">
+                        <div className="absolute bottom-24 md:bottom-28 lg:bottom-32 left-1/2 transform -translate-x-1/2 flex items-center space-x-3 bg-slate-900/90 backdrop-blur-md rounded-xl px-5 py-3 z-20 shadow-2xl border border-slate-700/50">
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -1267,7 +1280,7 @@ export default function WebRTCVideoCall() {
 
                 {/* Simplified Bottom Toolbar - Google Meet Style */}
                 <div
-                    className={`p-3 sm:p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 transition-transform duration-300 ${showToolbar ? "translate-y-0" : "translate-y-full"}`}
+                    className={`p-3 sm:p-4 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700/50 transition-transform duration-300 ${showToolbar ? "translate-y-0" : "translate-y-full"}`}
                 >
                     <SimplifiedToolbar
                         isMuted={isMuted}
@@ -1335,13 +1348,13 @@ export default function WebRTCVideoCall() {
 
                 {/* Modern Responsive Dialogs */}
                 <Dialog open={showKeyboardHelp} onOpenChange={setShowKeyboardHelp}>
-                    <DialogContent className="w-[95vw] max-w-md mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-md mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <KeyboardShortcutsHelp onClose={() => setShowKeyboardHelp(false)} />
                     </DialogContent>
                 </Dialog>
 
                 <Dialog open={showChat} onOpenChange={setShowChat}>
-                    <DialogContent className="w-[95vw] max-w-md h-[85vh] sm:h-[600px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-md h-[85vh] sm:h-[600px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <ChatPanel
                             onClose={() => setShowChat(false)}
                             onSendMessage={sendChatMessage}
@@ -1357,7 +1370,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showParticipants} onOpenChange={setShowParticipants}>
-                    <DialogContent className="w-[95vw] max-w-md h-[85vh] sm:h-[600px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-md h-[85vh] sm:h-[600px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <ParticipantsPanel 
                             participants={allParticipants} 
                             onClose={() => setShowParticipants(false)}
@@ -1398,13 +1411,13 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showSettings} onOpenChange={setShowSettings}>
-                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <SettingsPanel onClose={() => setShowSettings(false)} />
                     </DialogContent>
                 </Dialog>
 
                 <Dialog open={showAIFeatures} onOpenChange={setShowAIFeatures}>
-                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <AIFeaturesPanel
                             onClose={() => setShowAIFeatures(false)}
                             noiseReduction={noiseReduction}
@@ -1433,7 +1446,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showMeetingInsights} onOpenChange={setShowMeetingInsights}>
-                    <DialogContent className="w-[95vw] max-w-2xl h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-2xl h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <MeetingInsightsPanel
                             onClose={() => setShowMeetingInsights(false)}
                             summary={meetingSummary}
@@ -1446,7 +1459,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showVirtualBackground} onOpenChange={setShowVirtualBackground}>
-                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <VirtualBackgroundPanel
                             onClose={() => setShowVirtualBackground(false)}
                             localStream={localStream}
@@ -1458,7 +1471,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showBreakoutRooms} onOpenChange={setShowBreakoutRooms}>
-                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <BreakoutRoomsPanel
                             onClose={() => setShowBreakoutRooms(false)}
                             participants={allParticipants}
@@ -1470,7 +1483,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showPolls} onOpenChange={setShowPolls}>
-                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <PollsPanel
                             onClose={() => setShowPolls(false)}
                             localParticipantId={localParticipantId}
@@ -1482,7 +1495,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showWhiteboard} onOpenChange={setShowWhiteboard}>
-                    <DialogContent className="w-[95vw] max-w-4xl h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-4xl h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <WhiteboardPanel
                             onClose={() => setShowWhiteboard(false)}
                             signalingRef={signalingRef}
@@ -1492,7 +1505,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showFileSharing} onOpenChange={setShowFileSharing}>
-                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <FileSharingPanel
                             onClose={() => setShowFileSharing(false)}
                             signalingRef={signalingRef}
@@ -1503,7 +1516,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showQA} onOpenChange={setShowQA}>
-                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-lg h-[85vh] sm:h-[700px] mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <QAPanel
                             onClose={() => setShowQA(false)}
                             signalingRef={signalingRef}
@@ -1515,7 +1528,7 @@ export default function WebRTCVideoCall() {
                 </Dialog>
 
                 <Dialog open={showSecurity} onOpenChange={setShowSecurity}>
-                    <DialogContent className="w-[95vw] max-w-md h-auto mx-auto p-0 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl">
+                    <DialogContent className="w-[95vw] max-w-md h-auto mx-auto p-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                         <SecurityPanel
                             onClose={() => setShowSecurity(false)}
                             signalingRef={signalingRef}

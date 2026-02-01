@@ -84,8 +84,8 @@ export default function SecurityPanel({ onClose, signalingRef, isHost, roomId }:
 
     if (!isHost) {
         return (
-            <div className="h-full flex flex-col bg-gray-900 text-gray-50">
-                <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="h-full flex flex-col bg-slate-900 text-slate-50">
+                <div className="flex items-center justify-between p-4 border-b border-slate-700">
                     <h2 className="text-lg font-semibold">Security</h2>
                     <Button variant="ghost" size="icon" onClick={onClose}>
                         <X className="w-5 h-5" />
@@ -102,9 +102,9 @@ export default function SecurityPanel({ onClose, signalingRef, isHost, roomId }:
     }
 
     return (
-        <div className="h-full flex flex-col bg-gray-900 text-gray-50">
+        <div className="h-full flex flex-col bg-slate-900 text-slate-50">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
                 <div className="flex items-center space-x-2">
                     <Shield className="w-5 h-5 text-blue-400" />
                     <h2 className="text-lg font-semibold">Security</h2>
@@ -126,7 +126,7 @@ export default function SecurityPanel({ onClose, signalingRef, isHost, roomId }:
                             )}
                             <div>
                                 <Label className="text-base">Lock Meeting</Label>
-                                <p className="text-xs text-gray-400">Prevent new participants from joining</p>
+                                <p className="text-xs text-slate-400">Prevent new participants from joining</p>
                             </div>
                         </div>
                         <Switch checked={isLocked} onCheckedChange={toggleMeetingLock} />
@@ -148,7 +148,7 @@ export default function SecurityPanel({ onClose, signalingRef, isHost, roomId }:
                 <div className="flex items-center justify-between">
                     <div>
                         <Label className="text-base">Waiting Room</Label>
-                        <p className="text-xs text-gray-400">Admit participants before they join</p>
+                        <p className="text-xs text-slate-400">Admit participants before they join</p>
                     </div>
                     <Switch checked={waitingRoomEnabled} onCheckedChange={toggleWaitingRoom} />
                 </div>
@@ -159,7 +159,7 @@ export default function SecurityPanel({ onClose, signalingRef, isHost, roomId }:
                 <div className="flex items-center justify-between">
                     <div>
                         <Label className="text-base">Restrict Screen Sharing</Label>
-                        <p className="text-xs text-gray-400">Only host can share screen</p>
+                        <p className="text-xs text-slate-400">Only host can share screen</p>
                     </div>
                     <Switch checked={screenShareRestricted} onCheckedChange={toggleScreenShareRestriction} />
                 </div>
@@ -170,7 +170,7 @@ export default function SecurityPanel({ onClose, signalingRef, isHost, roomId }:
                 <div className="flex items-center justify-between">
                     <div>
                         <Label className="text-base">Restrict Chat</Label>
-                        <p className="text-xs text-gray-400">Only host can send messages</p>
+                        <p className="text-xs text-slate-400">Only host can send messages</p>
                     </div>
                     <Switch checked={chatRestricted} onCheckedChange={toggleChatRestriction} />
                 </div>
