@@ -163,6 +163,7 @@ const ParticipantGrid = ({
                                 isLarge={true}
                                 onToggleVideo={mainParticipant.isLocal ? onToggleVideo : undefined}
                                 isSpeaking={speakingParticipants.has(mainParticipant.id)}
+                                isScreenSharing={screenSharingParticipantId === mainParticipant.id}
                             />
                         )}
                     </div>
@@ -177,6 +178,7 @@ const ParticipantGrid = ({
                                     isLarge={false}
                                     onToggleVideo={participant.isLocal ? onToggleVideo : undefined}
                                     isSpeaking={speakingParticipants.has(participant.id)}
+                                    isScreenSharing={screenSharingParticipantId === participant.id}
                                 />
                             </div>
                         ))}
@@ -213,6 +215,7 @@ const ParticipantGrid = ({
                                 isLarge={true}
                                 onToggleVideo={focusParticipant.isLocal ? onToggleVideo : undefined}
                                 isSpeaking={speakingParticipants.has(focusParticipant.id)}
+                                isScreenSharing={screenSharingParticipantId === focusParticipant.id}
                             />
                         )}
                     </div>
@@ -232,6 +235,7 @@ const ParticipantGrid = ({
                                     isLarge={false}
                                     onToggleVideo={participant.isLocal ? onToggleVideo : undefined}
                                     isSpeaking={speakingParticipants.has(participant.id)}
+                                    isScreenSharing={screenSharingParticipantId === participant.id}
                                 />
                             </div>
                         ))}
@@ -287,6 +291,7 @@ const ParticipantGrid = ({
                             isLarge={count <= 2}
                             onToggleVideo={participant.isLocal ? onToggleVideo : undefined}
                             isSpeaking={speakingParticipants.has(participant.id)}
+                            isScreenSharing={screenSharingParticipantId === participant.id}
                         />
                     </div>
                 ))}
@@ -300,11 +305,13 @@ const ParticipantVideo = ({
     isLarge,
     onToggleVideo,
     isSpeaking,
+    isScreenSharing = false,
 }: {
     participant: Participant
     isLarge?: boolean
     onToggleVideo?: () => void
     isSpeaking?: boolean
+    isScreenSharing?: boolean
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null)
     const [isVideoLoading, setIsVideoLoading] = useState(true)
@@ -322,6 +329,7 @@ const ParticipantVideo = ({
             videoTracks: participant.stream?.getVideoTracks().length || 0,
             audioTracks: participant.stream?.getAudioTracks().length || 0,
             isVideoOff: participant.isVideoOff,
+            isScreenSharing,
         })
 
         if (participant.stream && participant.stream.active) {
@@ -334,7 +342,7 @@ const ParticipantVideo = ({
                 videoTrack.label.includes('screen') ||
                 videoTrack.label.includes('Screen')
             )
-            setIsScreenShare(!!isScreenShareStream)
+            setIsScreenShare(!!isScreenShareStream || isScreenSharing)
 
             // Only update if stream is different
             if (videoElement.srcObject !== participant.stream) {
@@ -369,7 +377,7 @@ const ParticipantVideo = ({
             setIsVideoLoading(false)
             setIsScreenShare(false)
         }
-    }, [participant.stream, participant.id, participant.isLocal, participant.isVideoOff])
+    }, [participant.stream, participant.id, participant.isLocal, participant.isVideoOff, isScreenSharing])
 
     return (
         <div
@@ -379,6 +387,20 @@ const ParticipantVideo = ({
                     : "ring-1 ring-gray-700/50 hover:ring-2 hover:ring-gray-600/50"
             }`}
         >
+            {/* Always render audio for remote participants even when video is off */}
+            {!participant.isLocal && participant.stream && participant.stream.active && (
+                <audio
+                    ref={(el) => {
+                        if (el && el.srcObject !== participant.stream) {
+                            el.srcObject = participant.stream || null
+                            el.play().catch(console.error)
+                        }
+                    }}
+                    autoPlay
+                    playsInline
+                />
+            )}
+            
             {participant.stream && participant.stream.active && (!participant.isVideoOff || isScreenShare) && !hasVideoError ? (
                 <>
                     <video
