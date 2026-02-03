@@ -1183,6 +1183,17 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0]
       if (videoTrack) {
+        // Check if this is a screen share track
+        const isScreenShareTrack = videoTrack.label.includes('screen') || 
+                                   videoTrack.label.includes('Screen') ||
+                                   videoTrack.getSettings().displaySurface !== undefined
+        
+        if (isScreenShareTrack) {
+          console.log('Cannot toggle camera while screen sharing - this is a screen share track')
+          setError('Stop screen sharing first to control camera')
+          return
+        }
+        
         videoTrack.enabled = !videoTrack.enabled
         const isVideoOff = !videoTrack.enabled
 
