@@ -132,6 +132,11 @@ export default function PollsPanel({
             isActive: true,
         }
 
+        // Add poll locally for creator
+        setPolls(prev => [...prev, poll])
+        setActivePoll(poll)
+
+        // Broadcast to other participants
         if (signalingRef.current) {
             signalingRef.current.emit("create-poll", { poll })
         }

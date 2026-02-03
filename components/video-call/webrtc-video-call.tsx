@@ -73,7 +73,7 @@ import SecurityPanel from "./security-panel"
 import LiveCaptions from "./live-captions"
 import Dashboard from "../dashboard/dashboard"
 import WaitingRoom from "./waiting-room"
-import { Toaster } from "sonner"
+import { Toaster, toast } from "sonner"
 import { getAuth } from "@/lib/auth"
 import { usePictureInPicture } from "@/hooks/use-picture-in-picture"
 
@@ -206,7 +206,7 @@ const ParticipantGrid = ({
             <div className="h-full flex flex-col md:flex-row gap-2 md:gap-3 lg:gap-4 p-2 md:p-4 lg:p-6">
                 {/* Main focused participant */}
                 <div className="flex-1 flex items-center justify-center min-h-0">
-                    <div className="w-full h-full max-w-7xl">
+                    <div className="w-full h-full">
                         {focusParticipant && (
                             <ParticipantVideo 
                                 participant={focusParticipant} 
@@ -383,7 +383,8 @@ const ParticipantVideo = ({
                 <>
                     <video
                         ref={videoRef}
-                        className={`w-full h-full ${isScreenShare ? 'object-contain' : 'object-cover'} ${participant.isLocal ? "scale-x-[-1]" : ""}`}
+                        data-local={participant.isLocal}
+                        className={`w-full h-full ${isScreenShare ? 'object-contain bg-black' : 'object-cover'} ${participant.isLocal && !isScreenShare ? "scale-x-[-1]" : ""}`}
                         autoPlay
                         playsInline
                         muted={participant.isLocal}
@@ -404,38 +405,43 @@ const ParticipantVideo = ({
                     )}
                 </>
             ) : (
-                <div className="w-full h-full flex items-center justify-center bg-slate-900">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                        {/* Google Meet style avatar */}
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bg-slate-700 rounded-full flex items-center justify-center ring-4 ring-slate-600/30">
-                            <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-slate-200">
-                                {participant.name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
-                            </span>
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                        {/* Professional avatar with gradient */}
+                        <div className="relative">
+                            <div className="w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 lg:w-44 lg:h-44 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl">
+                                <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white">
+                                    {participant.name
+                                        .split(" ")
+                                        .map((n) => n[0])
+                                        .join("")}
+                                </span>
+                            </div>
+                            {/* Glow effect */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full blur-xl opacity-30 -z-10"></div>
                         </div>
                         
-                        {/* Name */}
-                        <p className="text-slate-300 font-medium text-sm sm:text-base md:text-lg text-center px-4 max-w-full truncate">
+                        {/* Name with better styling */}
+                        <p className="text-white font-semibold text-base sm:text-lg md:text-xl text-center px-4 max-w-full truncate">
                             {participant.name}
                         </p>
                         
-                        {/* Camera off indicator */}
-                        {participant.isVideoOff && (
-                            <div className="flex items-center space-x-2 bg-slate-800/80 rounded-full px-3 py-1.5">
-                                <VideoOff className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="text-xs text-slate-400">Camera is off</span>
-                            </div>
-                        )}
-                        
-                        {/* Muted indicator when video is off */}
-                        {participant.isMuted && (
-                            <div className="flex items-center space-x-2 bg-slate-800/80 rounded-full px-3 py-1.5">
-                                <MicOff className="w-3.5 h-3.5 text-red-400" />
-                                <span className="text-xs text-slate-400">Microphone is off</span>
-                            </div>
-                        )}
+                        {/* Status indicators with better design */}
+                        <div className="flex flex-col items-center gap-2">
+                            {participant.isVideoOff && (
+                                <div className="flex items-center space-x-2 bg-slate-800/90 backdrop-blur-sm rounded-full px-4 py-2 border border-slate-700/50">
+                                    <VideoOff className="w-4 h-4 text-slate-300" />
+                                    <span className="text-sm text-slate-300 font-medium">Camera off</span>
+                                </div>
+                            )}
+                            
+                            {participant.isMuted && (
+                                <div className="flex items-center space-x-2 bg-red-500/20 backdrop-blur-sm rounded-full px-4 py-2 border border-red-500/30">
+                                    <MicOff className="w-4 h-4 text-red-400" />
+                                    <span className="text-sm text-red-300 font-medium">Muted</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -519,6 +525,13 @@ const ParticipantVideo = ({
                     {participant.isRaiseHand && <Hand className="w-3 sm:w-4 h-3 sm:h-4 text-yellow-400" />}
                 </div>
             </div>
+            
+            {/* Reaction Display */}
+            {participant.activeReaction && (
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl sm:text-7xl md:text-8xl animate-bounce z-30 pointer-events-none">
+                    {participant.activeReaction.emoji}
+                </div>
+            )}
         </div>
     )
 }
@@ -610,7 +623,37 @@ export default function WebRTCVideoCall() {
     const lastSpotlightIdRef = useRef<string | null>(null)
 
     // Picture-in-Picture
-    const { isPiPActive, isPiPSupported, togglePiP } = usePictureInPicture(localVideoRef.current || null)
+    const [isPiPActive, setIsPiPActive] = useState(false)
+    const [isPiPSupported, setIsPiPSupported] = useState(false)
+    
+    useEffect(() => {
+        setIsPiPSupported(document.pictureInPictureEnabled || false)
+    }, [])
+    
+    const togglePiP = useCallback(async () => {
+        if (!isPiPSupported) {
+            toast.error('Picture-in-Picture is not supported')
+            return
+        }
+        
+        try {
+            if (isPiPActive) {
+                await document.exitPictureInPicture()
+                setIsPiPActive(false)
+            } else {
+                const localVideo = document.querySelector('video[data-local="true"]') as HTMLVideoElement
+                if (localVideo) {
+                    await localVideo.requestPictureInPicture()
+                    setIsPiPActive(true)
+                } else {
+                    toast.error('No video available')
+                }
+            }
+        } catch (error) {
+            console.error('PiP error:', error)
+            toast.error('Failed to toggle Picture-in-Picture')
+        }
+    }, [isPiPActive, isPiPSupported])
 
     const [currentRoomId, setCurrentRoomId] = useState<string>("")
     const [showDashboard, setShowDashboard] = useState(false)
@@ -1004,11 +1047,12 @@ export default function WebRTCVideoCall() {
             id: localParticipantId,
             name: "You",
             isLocal: true,
-            isHost: isLocalHost, // Use server-provided host status
+            isHost: isLocalHost,
             stream: localStream || undefined,
             isMuted,
             isVideoOff,
-            isRaiseHand: false,
+            isRaiseHand: participants.find(p => p.id === localParticipantId)?.isRaiseHand || false,
+            activeReaction: participants.find(p => p.id === localParticipantId)?.activeReaction,
             status: "online" as const,
             joinedAt: new Date().toISOString(),
             lastSeen: new Date().toISOString(),
