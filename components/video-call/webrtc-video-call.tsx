@@ -342,7 +342,16 @@ const ParticipantVideo = ({
                 videoTrack.label.includes('screen') ||
                 videoTrack.label.includes('Screen')
             )
-            setIsScreenShare(!!isScreenShareStream || isScreenSharing)
+            const detectedScreenShare = !!isScreenShareStream || isScreenSharing
+            setIsScreenShare(detectedScreenShare)
+            
+            console.log(`[v0] Screen share detection for ${participant.id}:`, {
+                isScreenShareStream: !!isScreenShareStream,
+                isScreenSharing,
+                detectedScreenShare,
+                videoTrackLabel: videoTrack?.label,
+                displaySurface: videoTrack?.getSettings().displaySurface
+            })
 
             // Only update if stream is different
             if (videoElement.srcObject !== participant.stream) {
@@ -406,11 +415,14 @@ const ParticipantVideo = ({
                     <video
                         ref={videoRef}
                         data-local={participant.isLocal}
-                        className={`w-full h-full ${isScreenShare ? 'object-contain bg-black' : 'object-cover'} ${participant.isLocal && !isScreenShare ? "scale-x-[-1]" : ""}`}
+                        className={`w-full h-full ${(isScreenShare || isScreenSharing) ? 'object-contain bg-black' : 'object-cover'} ${participant.isLocal && !isScreenShare && !isScreenSharing ? "scale-x-[-1]" : ""}`}
                         autoPlay
                         playsInline
                         muted={participant.isLocal}
-                        onLoadedMetadata={() => setIsVideoLoading(false)}
+                        onLoadedMetadata={() => {
+                            setIsVideoLoading(false)
+                            console.log(`[v0] Video metadata loaded for ${participant.id}, isScreenShare: ${isScreenShare}, isScreenSharing: ${isScreenSharing}`)
+                        }}
                         onError={() => {
                             console.error(`[v0] Video error for participant ${participant.id}`)
                             setHasVideoError(true)
