@@ -85,6 +85,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
   const [speakingParticipants, setSpeakingParticipants] = useState<Set<string>>(new Set())
   const [virtualBackgroundStream, setVirtualBackgroundStream] = useState<MediaStream | null>(null)
   const [screenSharingParticipantId, setScreenSharingParticipantId] = useState<string | null>(null)
+  const [cameraOffBeforeScreenShare, setCameraOffBeforeScreenShare] = useState(false)
 
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map()) // participantId -> RTCPeerConnection
   const signalingRef = useRef<Socket | null>(null)
@@ -1183,14 +1184,31 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0]
       if (videoTrack) {
-        // Check if this is a screen share track
+        // Check if currently screen sharing
         const isScreenShareTrack = videoTrack.label.includes('screen') || 
                                    videoTrack.label.includes('Screen') ||
                                    videoTrack.getSettings().displaySurface !== undefined
         
         if (isScreenShareTrack) {
-          console.log('Cannot toggle camera while screen sharing - this is a screen share track')
-          setError('Stop screen sharing first to control camera')
+          // If screen sharing, toggle the saved camera state for when we stop sharing
+          setCameraOffBeforeScreenShare(prev => {
+            const newState = !prev
+            console.log(`Camera preference toggled during screen share: will be ${newState ? 'off' : 'on'} after stopping`)
+            return newState
+          })
+          
+          // Update UI to show camera button state
+          setParticipants((prev) =>
+            prev.map((p) => (p.id === signalingRef.current?.id ? { ...p, isVideoOff: !cameraOffBeforeScreenShare } : p)),
+          )
+          
+          // Emit to other participants
+          if (signalingRef.current && signalingRef.current.connected) {
+            signalingRef.current.emit("user-video-toggled", {
+              participantId: signalingRef.current.id,
+              isVideoOff: !cameraOffBeforeScreenShare,
+            })
+          }
           return
         }
         
@@ -1222,7 +1240,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       console.warn("No local stream available to toggle video.")
       setError("No video stream available")
     }
-  }, [localStream])
+  }, [localStream, cameraOffBeforeScreenShare])
 
   // Toggle raise hand
   const toggleRaiseHand = useCallback(() => {
@@ -1323,6 +1341,12 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       const newVideoTrack = cameraAndMicStream.getVideoTracks()[0]
       const newAudioTrack = cameraAndMicStream.getAudioTracks()[0]
 
+      // Restore camera state from before screen share
+      if (newVideoTrack) {
+        newVideoTrack.enabled = !cameraOffBeforeScreenShare
+        console.log(`Restored camera state: ${newVideoTrack.enabled ? 'on' : 'off'}`)
+      }
+
       if (newAudioTrack) {
         newAudioTrack.enabled = currentAudioEnabled
       }
@@ -1355,9 +1379,18 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       setIsScreenSharing(false)
       setScreenSharingParticipantId(null)
       
+      // Update participant state with restored camera state
+      setParticipants((prev) =>
+        prev.map((p) => (p.id === signalingRef.current?.id ? { ...p, isVideoOff: cameraOffBeforeScreenShare } : p)),
+      )
+      
       // Notify other participants that screen sharing stopped
       if (signalingRef.current) {
         signalingRef.current.emit("screen-share-stopped", { participantId: localParticipantId })
+        signalingRef.current.emit("user-video-toggled", {
+          participantId: signalingRef.current.id,
+          isVideoOff: cameraOffBeforeScreenShare,
+        })
       }
       
       console.log("Screen sharing stopped, camera restored.")
@@ -1365,7 +1398,7 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
       console.error("Failed to stop screen sharing or get camera back:", err)
       setError("Failed to stop screen sharing or restore camera. Please refresh.")
     }
-  }, [localStream, localParticipantId])
+  }, [localStream, localParticipantId, cameraOffBeforeScreenShare])
 
   // Start screen sharing
   const startScreenShare = useCallback(async () => {
@@ -1375,6 +1408,12 @@ export function useWebRTC(): WebRTCState & WebRTCActions & { signalingRef: React
     }
 
     try {
+      // Save current camera state before screen sharing
+      const currentVideoTrack = localStream.getVideoTracks()[0]
+      const isCameraOff = currentVideoTrack ? !currentVideoTrack.enabled : true
+      setCameraOffBeforeScreenShare(isCameraOff)
+      console.log(`Saving camera state before screen share: ${isCameraOff ? 'off' : 'on'}`)
+
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: true,
