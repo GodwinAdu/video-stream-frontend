@@ -401,7 +401,7 @@ const ParticipantVideo = ({
                 />
             )}
             
-            {participant.stream && participant.stream.active && (!participant.isVideoOff || isScreenShare) && !hasVideoError ? (
+            {participant.stream && participant.stream.active && (!participant.isVideoOff || isScreenShare || isScreenSharing) && !hasVideoError ? (
                 <>
                     <video
                         ref={videoRef}
